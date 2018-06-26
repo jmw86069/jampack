@@ -10,4 +10,5 @@ An Rmarkdown file was prepared to demonstrate the analysis steps
 used for RNA-seq and microarray analysis, and to create the figures
 in the manuscript.
 
-(https://jmw86069.github.io/jampack/farrisSeq.html)
+[Rmarkdown summary of methods used in Farris et al](https://jmw86069.github.io/jampack/farrisSeq.html)
+
