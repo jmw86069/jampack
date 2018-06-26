@@ -1,0 +1,366 @@
+---
+title: "Farris et al RNA-seq methods"
+output:
+  html_document:
+    code_folding: show
+    toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: true
+    theme: cerulean
+    css: liao_style.css
+    highlight: pygments
+    df_print: kable
+  word_document:
+    fig_width: 6
+    fig_height: 6
+    fig_caption: true
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+## To render this page:
+## rmarkdown::render("farrisSeq.Rmd", "html_document");
+
+library(knitr);
+library(kableExtra);
+library(dplyr);
+knitr::opts_chunk$set(cache=TRUE);
+
+options("kable_styling_position"="left",
+  "kable_styling_full_width"=FALSE,
+  "kable_styling_bootstrap_options"=c("striped",
+    "hover",
+    "condensed",
+    "responsive")
+);
+colorSub <- c(
+   CA1="orange",
+   CA2="orangered3",
+   CA3="dodgerblue",
+   DG="purple",
+   CB="grey75",
+   DE="grey30",
+   CA1_CB="orange1",
+   CA1_DE="darkorange2",
+   CA2_CB="orangered1",
+   CA2_DE="orangered3",
+   CA3_CB="dodgerblue1",
+   CA3_DE="dodgerblue3",
+   DG_CB="darkorchid1",
+   DG_DE="darkorchid3",
+   `TRUE`="skyblue",
+   `FALSE`="indianred3");
+colorSub <- rgb2col(col2rgb(colorSub, alpha=TRUE));
+```
+
+```{r load_objects}
+## Load the R objects
+loadObject("farrisSalmonSE");
+loadObject("farrisSalmonTxSE");
+suppressPackageStartupMessages(library(SummarizedExperiment));
+```
+
+This document describes and demonstrates analysis methods used to analyze
+mouse hippocampal subregion-specific transcriptome RNA-seq data
+(Farris et al manuscript in preparation.)
+
+## Description of Input Data
+
+For the purpose of the R analysis methods described, the input data
+is derived from Salmon quantitation files, which were already imported and
+assembled into relevant data matrices.
+
+
+### Gene expression data
+
+Salmon quantitation files were imported using the R Bioconductor
+package `tximport`, summarized to the gene level, and stored in an
+R object `farrisSalmonSE`.
+
+#### farrisSalmonSE format
+
+The `farrisSalmonSE` object is a `SummarizedExperiment` with this content:
+
+* **assays** list containing the numeric matrix with gene rows,
+sample columns, with log2 median-normalized counts. Each row is named
+using a unique gene symbol derived from the Gencode GTF file. To
+access the normalized TPM data:
+```{r, eval=FALSE}
+assays(farrisSalmonSE)[["tpm"]]
+```
+* **rowData** data.frame with gene rows, using the gene symbol derived from
+the Gencode GTF file. 
+```{r, gene_table}
+as.data.frame(head(rowData(farrisSalmonSE), 10)) %>%
+   mutate() %>%
+   select(probeID, geneSymbol, ends_with("_type"),
+      contains("has")) %>%
+   kable(escape=FALSE) %>%
+   kable_styling()
+```
+
+* **colData** annotated data.frame with sample rows, describing the
+mouse hippocampal **Region**, **CellType**, **Sample**, and **groupName**.
+```{r, sample_table, echo=FALSE}
+df2 <- kable_coloring(colData(farrisSalmonSE),
+      colorSub=colorSub,
+      row_color_by="groupName",
+      returnType="kable") %>%
+   collapse_rows(columns=2:3, valign="middle") %>%
+   row_spec(0, background="#DDDDDD")
+df2;
+```
+
+
+* **metadata** list describing the experimental design and contrasts used
+for statistical comparisons.
+    * **design** numeric matrix describing the sample design, suitable
+    for use directly by methods from the R Bioconductor `limma` package.
+    * **contrasts** numeric matrix describing contrasts, suitable for
+    use directly by `limma`.
+    * **samples** vector of samples used.
+    * **genes** vector of genes used.
+
+
+### Transcript expression data
+
+Salmon  quantitation files were imported using `tximport` as above,
+maintaining individual isoform abundances, then stored in an R object
+`farrisSalmonTxNorm`.
+
+#### farrisSalmonTxSE format
+
+The `farrisSalmonTxSE` object is a named list with content similar to that
+described above for gene data:
+
+* **assays** list containing the numeric matrix with gene rows,
+sample columns, with log2 median-normalized counts. Each row is named
+using a unique gene symbol derived from the Gencode GTF file.
+* **rowData** data.frame with gene rows, using the gene symbol derived from
+the Gencode GTF file.
+```{r, tx_table}
+tx_df <- subset(as.data.frame(rowData(farrisSalmonTxSE)),
+   geneSymbol %in% c("Gria1","Shank2","Ntrk2")) %>%
+   select(geneSymbol,
+      probeID,
+      ends_with("_type"),
+      contains("has"),
+      contains("tpm"));
+tx_df <- mixedSortDF(tx_df,
+   byCols=match(c("geneSymbol","TxDetectedByTPM"),
+     colnames(tx_df))*c(1,-1));
+colorSubGene <- c(colorSub,
+   group2colors(unique(tx_df$geneSymbol),
+      cRange=c(20,30),
+      lRange=c(80,90)));
+tx_df2 <- kable_coloring(tx_df,
+      colorSub=colorSubGene,
+      row_color_by="geneSymbol",
+      verbose=TRUE,
+      returnType="kable") %>%
+   collapse_rows(columns=2, valign="middle") %>%
+   row_spec(0, background="#DDDDDD")
+
+tx_df2;
+```
+
+* **colData** annotated data.frame with sample rows, describing the
+mouse hippocampal **Region**, **CellType**, **Sample**, and **groupName**.
+* **metadata** list describing the experimental design and contrasts used
+for statistical comparisons.
+    * **design** numeric matrix describing the sample design, suitable
+    for use directly by methods from the R Bioconductor `limma` package.
+    * **contrasts** numeric matrix describing contrasts, suitable for
+    use directly by `limma`.
+    * **samples** vector of samples used.
+    * **genes** vector of genes used.
+
+
+## Related analysis parameters
+
+### Sickle read trimming
+
+We used sickle version 1.33 to trim paired-end reads, with parameters
+`-q 20 -l 20` to filter reads with quality threshold 20, and requiring
+reads at least 20 base length.
+
+### Cutadapt adapter trimming
+
+We used cutadapt version 1.8.1 with parameter `-m 20` and with standard
+Illumina Truseq adapter sequence `AGATCGGAAGAGC`.
+
+### STAR sequence alignment
+
+We used STAR version 2.5.1b to align versus Gencode vM12 comprehensive GTF,
+with the following parameters, based upon ENCODE recommended RNA-seq
+parameters:
+
+```
+--outFilterType Normal
+--outFilterMultimapNmax 20
+--alignSJoverhangMin 8
+--alignSJDBoverhangMin 1
+--outFilterMismatchNmax 999
+--alignIntronMin 20
+--alignIntronMax 1000000
+--alignMatesGapMax 1000000
+--outSAMtype BAM SortedByCoordinate Unsorted
+--outWigType bedGraph
+--outWigStrand Stranded
+--outWigNorm None
+--outReadsUnmapped Fastx
+--outMultimapperOrder Random
+```
+
+### Salmon quantitation
+
+We used salmon version 0.9.1 for transcript quantitation, using
+Gencode vM12 comprehensive GTF file, using a index with kmer size 31,
+and the cutadapt adapter-trimmed reads, with seqBias, VBO, and gcBias
+options enabled.
+
+
+### featureCounts read counting
+
+We used featureCounts version 1.5.1 to produce per-gene counts, using
+Gencode vM12 transcripts flattened per gene.
+
+
+## Gene expression analysis summary
+
+
+### BGA plot
+
+
+### Comparison with CA1 published data by Ainsley, Cajigas, Nakayama
+
+4-way Venn diagram
+
+
+### CB-only for CA1, CA2, CA3, DG
+
+Per-sample correlation, centered across all CB samples.
+
+
+#### Centered by Compartment (CB, DE)
+
+Correlation showing CA2_CB correlates highest with CA2_DE,
+etc. for each CellType.
+
+Scatterplot showing the +1,+1 selection of genes, which
+helps define the gene lists in the next section.
+
+Microarray correlation heatmap.
+
+### Neuronal Gene Lists
+
+(Description of the four gene/transcript lists)
+
+Heatmap per-gene.
+
+
+### Differential gene expression using limma
+
+
+## Transcript analysis summary
+
+### Definition of "detected transcripts"
+
+We refer to the function `defineDetectedTx()` in the `jampack` R package.
+The function takes normalized counts, normalized TPM values, sample
+group information, and several cutoff values:
+
+* **cutoffTxPctMax=10** requires a transcript isoform to be at least
+10% of the highest isoform present in the same sample.
+* **cutoffTxExpr=32** requires a transcript isoform to have at least
+32 normalized counts.
+* **cutoffTxTPMExpr=2** requires a transcript isoform to have at least
+a TPM value of 2.
+* All of the above criteria must be met for an isoform to be considered
+"detected."
+
+```{r, detectedTxTPM}
+refreshFunctions("farrisSalmonWWS");
+detectedTxTPML <- defineDetectedTx(
+   iMatrixTx=assays(farrisSalmonTxSE)[["counts"]],
+   iMatrixTxTPM=assays(farrisSalmonTxSE)[["tpm"]],
+   groups=colData(farrisSalmonTxSE)$groupName,
+   cutoffTxPctMax=10,
+   cutoffTxExpr=32,
+   cutoffTxTPMExpr=2,
+   tx2geneDF=renameColumn(rowData(farrisSalmonTxSE),
+     from=c("geneSymbol","probeID"),
+     to=c("gene_name","transcript_id")),
+   useMedian=FALSE,
+   verbose=FALSE);
+```
+
+The code above defined **`r formatInt(length(detectedTxTPML$detectedTx))` detected
+transcripts** by the given criteria.
+
+
+### Transcript type per gene list
+
+e.g. protein_coding, etc.
+
+
+### Analysis of 3'UTR length
+
+We imported Gencode vM12 comprehensive GTF into R using
+R Bioconductor GenomicFeatures package, with which we derived
+3'UTR regions, using `makeTxDbFromGFF()` and `threeUTRsByTranscript()`,
+respectively.
+
+We plotted 3'UTR lengths as violin plots using only detected transcripts
+based upon TPM criteria described elsewhere.
+
+
+### Translational Efficiency using CAI
+
+
+### Proximal-Distal 3'UTR Analysis
+
+
+### Differential transcript isoform analysis limma
+
+
+### Splicing, Sashimi plots
+
+
+
+
+## Gene Set Enrichment, MultiEnrichMap
+
+### Selection of gene hits
+
+Used DESeq-normalized expression values.
+
+
+### Hypergeometric enrichment using MSigDB v6.0
+
+
+#### Preparing MSigDB v6.0 data
+
+Creating gmtT format, refreshing gene symbols in the gmtT data,
+and the RNAseq gene hit data to be fully in sync.
+
+Commentary on alt gene symbols, conversion to official mouse
+Entrez gene symbols.
+
+
+#### enrichSimple
+
+Wrapper around standard hypergeometric enrichment tests, with
+a custom background of detected genes.
+
+
+### MultiEnrichMap
+
+Subset pathways for top 15 per source-category
+
+Heatmap of enrichment P-values.
+
+Cnet plot
+
+
