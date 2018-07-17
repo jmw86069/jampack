@@ -20,11 +20,15 @@ always_allow_html: yes
 
 ```{r setup, include=FALSE}
 ## To render this page:
+## In the farrisSeq folder run:
 ## rmarkdown::render("farrisSeq.Rmd", "html_document");
 
-library(knitr);
-library(kableExtra);
-library(dplyr);
+suppressPackageStartupMessages(library(knitr));
+suppressPackageStartupMessages(library(kableExtra));
+suppressPackageStartupMessages(library(dplyr));
+suppressPackageStartupMessages(library(plotly));
+suppressPackageStartupMessages(library(made4));
+suppressPackageStartupMessages(library(jamba));
 knitr::opts_chunk$set(cache=TRUE);
 
 options("kable_styling_position"="left",
@@ -54,20 +58,18 @@ colorSub <- c(
 colorSub <- rgb2col(col2rgb(colorSub, alpha=TRUE));
 ```
 
-```{r load_objects}
-## Load the R objects
-loadObject("farrisSalmonSE");
-loadObject("farrisSalmonTxSE");
-suppressPackageStartupMessages(library(SummarizedExperiment));
-```
-
 This document describes and demonstrates analysis methods used to analyze
 mouse hippocampal subregion-specific transcriptome RNA-seq data
 (Farris et al manuscript in preparation.)
 
+Raw sequence read data is provided through GEO GSE116343, with RNA-seq
+data available at GEO GSE116342. Data used for analysis in R is provided
+through an R package `farrisdata`, installed in R with
+`devtools::install_github("jmw86069/farrisdata")`.
+
 ## Description of Input Data
 
-For the purpose of the R analysis methods described, the input data
+The input data for this analysis workflow
 is derived from Salmon quantitation files, which were already imported and
 assembled into relevant data matrices.
 
@@ -76,23 +78,37 @@ assembled into relevant data matrices.
 
 Salmon quantitation files were imported using the R Bioconductor
 package `tximport`, summarized to the gene level, and stored in an
-R object `farrisSalmonSE`.
+R object `farrisGeneSE`, which is available in the R data package
+`farrisdata`, installed using
+`devtools::install_github("jmw86069/farrisdata")`.
 
-#### farrisSalmonSE format
+```{r load_gene_data}
+## Load the gene data
+library(farrisdata);
+library(SummarizedExperiment);
+farrisGeneSE;
+```
 
-The `farrisSalmonSE` object is a `SummarizedExperiment` with this content:
+#### farrisGeneSE SummarizedExperiment format
+
+`farrisGeneSE` is a `SummarizedExperiment` object with this content:
 
 * **assays** list containing the numeric matrix with gene rows,
 sample columns, with log2 median-normalized counts. Each row is named
 using a unique gene symbol derived from the Gencode GTF file. To
 access the normalized TPM data:
+
 ```{r, eval=FALSE}
-assays(farrisSalmonSE)[["tpm"]]
+assays(farrisGeneSE)[["counts"]]
 ```
+
+* **assays** also contains the raw Salmon pseudocounts
+accessible, using this command: `assays(farrisGeneSE)[["raw_counts"]]`
+
 * **rowData** data.frame with gene rows, using the gene symbol derived from
 the Gencode GTF file. 
 ```{r, gene_table}
-as.data.frame(head(rowData(farrisSalmonSE), 10)) %>%
+as.data.frame(head(rowData(farrisGeneSE), 10)) %>%
    mutate() %>%
    select(probeID, geneSymbol, ends_with("_type"),
       contains("has")) %>%
@@ -103,7 +119,7 @@ as.data.frame(head(rowData(farrisSalmonSE), 10)) %>%
 * **colData** annotated data.frame with sample rows, describing the
 mouse hippocampal **Region**, **CellType**, **Sample**, and **groupName**.
 ```{r, sample_table, echo=FALSE}
-df2 <- kable_coloring(colData(farrisSalmonSE),
+df2 <- kable_coloring(colData(farrisGeneSE),
       colorSub=colorSub,
       row_color_by="groupName",
       returnType="kable") %>%
@@ -127,11 +143,18 @@ for statistical comparisons.
 
 Salmon  quantitation files were imported using `tximport` as above,
 maintaining individual isoform abundances, then stored in an R object
-`farrisSalmonTxNorm`.
+`farrisTxSE`, which is available in the R data package
+`farrisdata`, installed using
+`devtools::install_github("jmw86069/farrisdata")`.
 
-#### farrisSalmonTxSE format
+```{r load_tx_data}
+## Load the gene data
+farrisTxSE;
+```
 
-The `farrisSalmonTxSE` object is a named list with content similar to that
+#### farrisTxSE format
+
+The `farrisTxSE` object is a named list with content similar to that
 described above for gene data:
 
 * **assays** list containing the numeric matrix with gene rows,
@@ -140,10 +163,10 @@ using a unique gene symbol derived from the Gencode GTF file.
 * **rowData** data.frame with gene rows, using the gene symbol derived from
 the Gencode GTF file.
 ```{r, tx_table}
-tx_df <- subset(as.data.frame(rowData(farrisSalmonTxSE)),
+tx_df <- subset(as.data.frame(rowData(farrisTxSE)),
    geneSymbol %in% c("Gria1","Shank2","Ntrk2")) %>%
    select(geneSymbol,
-      probeID,
+      transcript_id,
       ends_with("_type"),
       contains("has"),
       contains("tpm"));
@@ -157,7 +180,7 @@ colorSubGene <- c(colorSub,
 tx_df2 <- kable_coloring(tx_df,
       colorSub=colorSubGene,
       row_color_by="geneSymbol",
-      verbose=TRUE,
+      verbose=FALSE,
       returnType="kable") %>%
    collapse_rows(columns=2, valign="middle") %>%
    row_spec(0, background="#DDDDDD")
@@ -167,6 +190,7 @@ tx_df2;
 
 * **colData** annotated data.frame with sample rows, describing the
 mouse hippocampal **Region**, **CellType**, **Sample**, and **groupName**.
+This data is identical to the sample table shown for `farrisGeneSE` above.
 * **metadata** list describing the experimental design and contrasts used
 for statistical comparisons.
     * **design** numeric matrix describing the sample design, suitable
@@ -232,10 +256,81 @@ Gencode vM12 transcripts flattened per gene.
 
 ### BGA plot
 
+```{r bga_plot}
+salmonBga1 <- runBga(exprs=assays(farrisGeneSE)$counts,
+   signal="counts",
+   normMethod="",
+   groups=nameVector(colData(farrisGeneSE)$groupName,
+      colnames(farrisGeneSE)),
+   iSamples=nameVector(colnames(farrisGeneSE)),
+   iGenes=rownames(farrisGeneSE),
+   noiseFloor=10,
+   emptyRowThreshhold=0.6,
+   controlColumn="controlGroup",
+   fixNames=FALSE,
+   verbose=FALSE);
+```
 
-### Comparison with CA1 published data by Ainsley, Cajigas, Nakayama
+```{r bga_plotly}
+salmonBga1ly <- bgaPlotly3d(salmonBga1$bgaInfo,
+   axes=c(1,2,3),
+   colorSub=colorSub,
+   useScaledCoords=FALSE,
+   drawVectors="none",
+   drawSampleLabels=FALSE,
+   superGroups=gsub("_.+", "", salmonBga1$bgaInfo$fac),
+   ellipseType="none",
+   sceneX=0, sceneY=1, sceneZ=1,
+   verbose=FALSE);
+salmonBga1ly;
 
-4-way Venn diagram
+```
+
+### Comparison with CA1 published data by Nakayama, Ainsley, Cajigas
+
+First we calculate group medians using gene expression data, to determine
+the set of genes detected above an expression threshold of 128 pseudocounts
+(log2 = 7).
+
+```{r genes_detected_CA1}
+farrisGeneGroupMedians <- rowGroupMeans(assays(farrisGeneSE)[["counts"]],
+   groups=colData(farrisGeneSE)$groupName,
+   useMedian=TRUE);
+
+# Plot histogram of expression in CA1_CB and CA1_DE
+plotPolygonDensity(farrisGeneGroupMedians[,c("CA1_CB","CA1_DE")],
+   xlim=c(0,20),
+   ylim=c(0,700),
+   ablineV=7);
+
+# Detected genes in CA1_CB and CA1_DE
+CA1detected <- (farrisGeneGroupMedians[,"CA1_CB"] > 7 &
+   farrisGeneGroupMedians[,"CA1_DE"] > 7);
+CA1detCBandDE <- rownames(farrisGeneGroupMedians)[CA1detected];
+length(CA1detCBandDE);
+```
+
+Next we load previously gene lists representing detected CA1 dendrite genes
+from published studies from Nakayama et al, Ainsley et al, and
+Cajigas et al.
+
+```{r cajigas_genes}
+loadObject("farrisElifeGenes");
+loadObject("farrisAinsleyDEgenes");
+loadObject("cajigasNeuropilFilteredDetected");
+```
+
+Produce a 4-way Venn diagram showing the overlapping genes from these
+studies.
+
+```{r venn_4_way, fig.height=8, fig.width=8}
+vps <- vennPlotSets(list(
+  Farris=CA1detCBandDE,
+  Cajigas=cajigasNeuropilFilteredDetected,
+  Ainsley=farrisAinsleyDEgenes,
+  Nakayama=farrisElifeGenes));
+```
+
 
 
 ### CB-only for CA1, CA2, CA3, DG
