@@ -28,7 +28,14 @@ suppressPackageStartupMessages(library(kableExtra));
 suppressPackageStartupMessages(library(dplyr));
 suppressPackageStartupMessages(library(plotly));
 suppressPackageStartupMessages(library(made4));
+suppressPackageStartupMessages(library(matrixStats));
+
+suppressPackageStartupMessages(library(ggplot2));
+suppressPackageStartupMessages(library(ggrepel));
+
 suppressPackageStartupMessages(library(jamba));
+suppressPackageStartupMessages(library(colorjam));
+suppressPackageStartupMessages(library(farrisdata));
 knitr::opts_chunk$set(cache=TRUE);
 
 options("kable_styling_position"="left",
@@ -312,39 +319,201 @@ length(CA1detCBandDE);
 
 Next we load previously gene lists representing detected CA1 dendrite genes
 from published studies from Nakayama et al, Ainsley et al, and
-Cajigas et al.
-
-```{r cajigas_genes}
-loadObject("farrisElifeGenes");
-loadObject("farrisAinsleyDEgenes");
-loadObject("cajigasNeuropilFilteredDetected");
-```
+Cajigas et al. These genes are available in the `farrisdata` package,
+as described above.
 
 Produce a 4-way Venn diagram showing the overlapping genes from these
 studies.
 
 ```{r venn_4_way, fig.height=8, fig.width=8}
-vps <- vennPlotSets(list(
+GeneListL <- list(
   Farris=CA1detCBandDE,
-  Cajigas=cajigasNeuropilFilteredDetected,
-  Ainsley=farrisAinsleyDEgenes,
-  Nakayama=farrisElifeGenes));
+  Cajigas=CajigasGenes,
+  Ainsley=AinsleyGenes,
+  Nakayama=NakayamaGenes);
+GeneListIM <- list2im(GeneListL);
+vps <- limma::vennDiagram(GeneListIM,
+  circle.col=rainbowJam(4));
+```
+
+### Correlation Centered by Compartment, refers to Figure 2
+
+#### Cell Body
+
+Per-sample correlation, centered across all CB samples. First, we
+use Salmon normalized pseudocounts, restricted to genes where at
+least one group mean value is above log2(7), which is >= 128
+normalized pseudocounts.
+
+Then data is centered per **Compartment**, so that CellBody samples
+are centered by subtracting the mean CellBody expression per gene,
+and Dendrite samples are centered by subtracting the mean Dendrite
+expression per gene. This step uses `centerGeneData()` with the
+argument `centerGroups`.
+
+Next we prepare a data.frame with color coding to show the
+CellType and Compartment values.
+
+```{r sample_corr_cb_prep}
+## farrisGeneGroupMedians
+## Pull out only cell body samples
+iSamples <- colnames(farrisGeneSE);
+iSamplesCB <- vigrep("CB", iSamples);
+iSamplesDE <- vigrep("DE", iSamples);
+iSamplesGrp <- colnames(iMatrix7grp);
+iSamplesGrpCB <- vigrep("CB", iSamplesGrp);
+iSamplesGrpDE <- vigrep("DE", iSamplesGrp);
+
+corrCutoff <- 7;
+genesAboveCutoff <- (rowMaxs(farrisGeneGroupMedians) >= corrCutoff);
+genesAboveCutoffCB <- (rowMaxs(farrisGeneGroupMedians[,iSamplesGrpCB]) >= corrCutoff);
+genesAboveCutoffDE <- (rowMaxs(farrisGeneGroupMedians[,iSamplesGrpDE]) >= corrCutoff);
+genesAboveCutoffBoth <- (genesAboveCutoffCB & genesAboveCutoffDE);
+
+iMatrix7 <- assays(farrisGeneSE[genesAboveCutoff,])[["counts"]];
+centerGroups <- gsub("^.+(DE|CB).+$",
+   "\\1",
+   iSamples);
+iMatrix7ctr <- centerGeneData(iMatrix7,
+   centerGroups=centerGroups);
+iMatrix7ctrCor <- cor(iMatrix7ctr);
+
+
+## Generate some color bars to annotate the heatmap
+colDataColorsRepL <- as.data.frame(colData(farrisGeneSE)[,c("CellType","Compartment")]);
+colDataColorsRep <- df2groupColors(colDataColorsRepL,
+  colorSub=colorSub);
+```
+
+We use `heatmap.3()` to draw the heatmap.
+
+```{r sample_corr_cb, fig.height=8, fig.width=8}
+par("family"="Arial", "lend"="square", "ljoin"="mitre");
+heatmap.3(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
+   margins=c(15,15),
+   trace="none",
+   col=colorRampPalette(rev(brewer.pal(15,"RdBu")))(51),
+   add.expr=box(),
+   cexCol=1.5,
+   cexRow=1.5,
+   keyLabel="Correlation",
+   colLensFactor=10,
+   distMethod="euclidean",
+   hclustMethod="ward",
+   doColorDendrograms=TRUE,
+   ColSideColors=t(colDataColorsRep[iSamplesCB,2:1]),
+   ColSideColorsNote=t(colDataColorsRepL[iSamplesCB,2:1]),
+   RowSideColors=(colDataColorsRep[iSamplesCB,2:1]),
+   RowSideColorsNote=(colDataColorsRepL[iSamplesCB,2:1]) );
 ```
 
 
-
-### CB-only for CA1, CA2, CA3, DG
-
-Per-sample correlation, centered across all CB samples.
-
-
-#### Centered by Compartment (CB, DE)
+#### Cell Body and Dendrite
 
 Correlation showing CA2_CB correlates highest with CA2_DE,
 etc. for each CellType.
 
+```{r corr_by_compartment_prep}
+## farrisGeneGroupMedians[genesAboveCutoff,]
+iMatrix7grp <- farrisGeneGroupMedians[genesAboveCutoffCB,];
+centerGroupsGrp <- gsub("^.*(DE|CB).*$",
+   "\\1",
+   iSamplesGrp);
+iMatrix7grpCtr <- centerGeneData(iMatrix7grp,
+   centerGroups=centerGroupsGrp);
+iMatrix7grpCtrCor <- cor(iMatrix7grpCtr);
+
+## Generate some color bars to annotate the heatmap
+colDataColorsGrpL <- data.frame(rbindList(
+   strsplit(nameVector(iSamplesGrp), "_")));
+colnames(colDataColorsGrpL) <- c("CellType","Compartment");
+colDataColorsGrp <- df2groupColors(colDataColorsGrpL,
+  colorSub=colorSub);
+```
+
+We use `heatmap.3()` to draw the heatmap.
+
+```{r corr_by_compartment, fig.height=8, fig.width=8}
+par("family"="Arial", "lend"="square", "ljoin"="mitre");
+heatmap.3(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
+   margins=c(15,15),
+   trace="none",
+   hclCutoff=70,
+   cexColSideColorsNote=1.2,
+   cexRowSideColorsNote=1.2,
+   col=colorRampPalette(rev(brewer.pal(15,"RdBu")))(51),
+   add.expr=box(),
+   cexCol=1.5,
+   cexRow=1.5,
+   keyLabel="Correlation",
+   colLensFactor=10,
+   distMethod="euclidean",
+   hclustMethod="ward",
+   ColSideColors=t(colDataColorsGrp[iSamplesGrp,2:1]),
+   ColSideColorsNote=t(colDataColorsGrpL[iSamplesGrp,2:1]),
+   RowSideColors=(colDataColorsGrp[iSamplesGrp,2:1]),
+   RowSideColorsNote=(colDataColorsGrpL[iSamplesGrp,2:1]) );
+```
+
+#### Splom plot, refers to Figure 2, and Supplemental Figure 3
+
 Scatterplot showing the +1,+1 selection of genes, which
 helps define the gene lists in the next section.
+
+```{r splom_CA2, fig.height=8, fig.width=8}
+corCols <- c("CA2_DE","CA2_CB");
+cutCB <- log2(1.5);
+cutDE <- log2(1.5);
+splomL <- lapply(nameVector(c("CA1","CA2","CA3","DG")), function(k) {
+   corCols <- vigrep(k, colnames(iMatrix7grpCtr));
+   df1 <- as.data.frame(iMatrix7grpCtr[,corCols]);
+   CBhit <- (abs(df1[,1]) > cutCB) * sign(df1[,1]);
+   DEhit <- (abs(df1[,2]) > cutCB) * sign(df1[,2]);
+   CBhitN <- paste0(k, "_", "CBhit");
+   DEhitN <- paste0(k, "_", "DEhit");
+   df1[,CBhitN] <- CBhit;
+   df1[,DEhitN] <- DEhit;
+   df1[,"GeneName"] <- rownames(df1);
+   df1;
+});
+splomLsub <- lapply(splomL, function(iDF){
+   subset(iDF, !iDF[,3] %in% 0 | !iDF[,4] %in% 0)
+});
+
+splomDF2 <- rbindList(lapply(splomLsub, function(iDF){
+   iDF[,"CellType"] <- gsub("_.+", "", colnames(iDF)[1]);
+   colnames(iDF) <- c("CB","DE","CBhit","DEhit","GeneName","CellType");
+   iDF;
+}));
+#splomDF2[,"row"] <- ifelse(splomDF2$CellType %in% c("CA1","CA2"), "CA1", "CA3");
+splomDF2[,"CBDEhit"] <- paste0(splomDF2$CBhit,":",splomDF2$DEhit);
+
+## Color-code the splom points
+ccColors <- nameVector(rep("grey", 8), unique(splomDF2$CBDEhit));
+ccColors[c("1:1","-1:-1")] <- "orangered3";
+ccColors[c("-1:1","1:-1")] <- "grey";
+
+## Gene labels
+GeneHighlight <- c("Plch2","Rgs14","Necab2","1700024P16Rik");
+splomDF2$label <- ifelse(splomDF2$GeneName %in% GeneHighlight,
+  splomDF2$GeneName, "");
+
+gg2 <- ggplot(splomDF2,
+      aes(x=CB, y=DE, color=CBDEhit, fill=CBDEhit, GeneName=GeneName)) +
+   geom_point(shape=21, size=2) +
+   geom_vline(xintercept=c(-1,1)*0.585,
+      linetype="dashed", color="grey20") +
+   geom_hline(yintercept=c(-1,1)*0.585, linetype="dashed", color="grey20") +
+   facet_wrap(facets=~CellType) +
+   theme_jam() +
+   scale_fill_manual(values=ccColors) +
+   scale_color_manual(values=makeColorDarker(ccColors)) +
+   ggrepel::geom_label_repel(aes(label=label),
+      force=8,
+      fill="white") +
+   theme(legend.position="none");
+gg2;
+```
 
 Microarray correlation heatmap.
 
