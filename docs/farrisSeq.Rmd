@@ -2,7 +2,7 @@
 title: "Farris et al RNA-seq methods"
 output:
   html_document:
-    code_folding: show
+    code_folding: hide
     toc: true
     toc_depth: 4
     toc_float:
@@ -29,14 +29,18 @@ suppressPackageStartupMessages(library(dplyr));
 suppressPackageStartupMessages(library(plotly));
 suppressPackageStartupMessages(library(made4));
 suppressPackageStartupMessages(library(matrixStats));
+suppressPackageStartupMessages(library(pheatmap));
+suppressPackageStartupMessages(library(ComplexHeatmap));
 
 suppressPackageStartupMessages(library(ggplot2));
 suppressPackageStartupMessages(library(ggrepel));
 
 suppressPackageStartupMessages(library(jamba));
+suppressPackageStartupMessages(library(jamma));
 suppressPackageStartupMessages(library(colorjam));
+suppressPackageStartupMessages(library(splicejam));
 suppressPackageStartupMessages(library(farrisdata));
-knitr::opts_chunk$set(cache=TRUE);
+knitr::opts_chunk$set(cache=TRUE, autodep=TRUE);
 
 options("kable_styling_position"="left",
   "kable_styling_full_width"=FALSE,
@@ -130,7 +134,7 @@ df2 <- kable_coloring(colData(farrisGeneSE),
       colorSub=colorSub,
       row_color_by="groupName",
       returnType="kable") %>%
-   collapse_rows(columns=2:3, valign="middle") %>%
+   collapse_rows(columns=c(5), valign="middle") %>%
    row_spec(0, background="#DDDDDD")
 df2;
 ```
@@ -264,33 +268,31 @@ Gencode vM12 transcripts flattened per gene.
 ### BGA plot
 
 ```{r bga_plot}
-salmonBga1 <- runBga(exprs=assays(farrisGeneSE)$counts,
-   signal="counts",
-   normMethod="",
-   groups=nameVector(colData(farrisGeneSE)$groupName,
+bgaExprs <- assays(farrisGeneSE)$counts;
+bgaExprs[bgaExprs < 7] <- 7;
+bgaExprsUse <- bgaExprs[rowMins(bgaExprs) < rowMaxs(bgaExprs),,drop=FALSE];
+nrow(bgaExprsUse);
+
+salmonBga1 <- bga(dataset=bgaExprsUse,
+   classvec=nameVector(colData(farrisGeneSE)$groupName,
       colnames(farrisGeneSE)),
-   iSamples=nameVector(colnames(farrisGeneSE)),
-   iGenes=rownames(farrisGeneSE),
-   noiseFloor=10,
-   emptyRowThreshhold=0.6,
-   controlColumn="controlGroup",
-   fixNames=FALSE,
-   verbose=FALSE);
+   type="coa");
 ```
 
 ```{r bga_plotly}
-salmonBga1ly <- bgaPlotly3d(salmonBga1$bgaInfo,
+salmonBga1ly <- bgaPlotly3d(salmonBga1,
    axes=c(1,2,3),
    colorSub=colorSub,
    useScaledCoords=FALSE,
    drawVectors="none",
    drawSampleLabels=FALSE,
-   superGroups=gsub("_.+", "", salmonBga1$bgaInfo$fac),
+   superGroups=gsub("_.+", "", salmonBga1$fac),
    ellipseType="none",
    sceneX=0, sceneY=1, sceneZ=1,
    verbose=FALSE);
 salmonBga1ly;
-
+# sys.source("/Users/wardjm/Projects/R-scripts/bga_functions.R", envir=bga_env, keep.source=TRUE);
+# attach(bga_env);detach(pos=tail(igrep("bga_env", search()), -1));
 ```
 
 ### Comparison with CA1 published data by Nakayama, Ainsley, Cajigas
@@ -299,7 +301,7 @@ First we calculate group medians using gene expression data, to determine
 the set of genes detected above an expression threshold of 128 pseudocounts
 (log2 = 7).
 
-```{r genes_detected_CA1}
+```{r genes_detected_CA1, fig.height=9, fig.width=6}
 farrisGeneGroupMedians <- rowGroupMeans(assays(farrisGeneSE)[["counts"]],
    groups=colData(farrisGeneSE)$groupName,
    useMedian=TRUE);
@@ -360,7 +362,8 @@ CellType and Compartment values.
 iSamples <- colnames(farrisGeneSE);
 iSamplesCB <- vigrep("CB", iSamples);
 iSamplesDE <- vigrep("DE", iSamples);
-iSamplesGrp <- colnames(iMatrix7grp);
+#iSamplesGrp <- colnames(iMatrix7grp);
+iSamplesGrp <- colnames(farrisGeneGroupMedians);
 iSamplesGrpCB <- vigrep("CB", iSamplesGrp);
 iSamplesGrpDE <- vigrep("DE", iSamplesGrp);
 
@@ -381,30 +384,73 @@ iMatrix7ctrCor <- cor(iMatrix7ctr);
 
 ## Generate some color bars to annotate the heatmap
 colDataColorsRepL <- as.data.frame(colData(farrisGeneSE)[,c("CellType","Compartment")]);
-colDataColorsRep <- df2groupColors(colDataColorsRepL,
-  colorSub=colorSub);
+colDataColorsRep <- df2colorSub(colDataColorsRepL, colorSub=colorSub);
 ```
 
-We use `heatmap.3()` to draw the heatmap.
+We use `pheatmap()` (not yet using `heatmap.3()`) to draw the heatmap.
 
-```{r sample_corr_cb, fig.height=8, fig.width=8}
-par("family"="Arial", "lend"="square", "ljoin"="mitre");
-heatmap.3(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
-   margins=c(15,15),
-   trace="none",
-   col=colorRampPalette(rev(brewer.pal(15,"RdBu")))(51),
-   add.expr=box(),
-   cexCol=1.5,
-   cexRow=1.5,
-   keyLabel="Correlation",
-   colLensFactor=10,
-   distMethod="euclidean",
-   hclustMethod="ward",
-   doColorDendrograms=TRUE,
-   ColSideColors=t(colDataColorsRep[iSamplesCB,2:1]),
-   ColSideColorsNote=t(colDataColorsRepL[iSamplesCB,2:1]),
-   RowSideColors=(colDataColorsRep[iSamplesCB,2:1]),
-   RowSideColorsNote=(colDataColorsRepL[iSamplesCB,2:1]) );
+```{r sample_corr_cb, fig.height=8, fig.width=10}
+pheat_colors <- list(Compartment=colorSub[c("CB","DE")],
+   CellType=colorSub[c("CA1","CA2","CA3","DG")]);
+pheat_breaks <- warpAroundZero(seq(from=-1, to=1, length.out=51), lens=1);
+pheatmap(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
+   breaks=pheat_breaks,
+   border_color=NA,
+   #display_numbers=TRUE, number_color="grey80",
+   #cutree_rows=4, cutree_cols=4,
+   annotation_names_col=TRUE,
+   color=getColorRamp("RdBu_r", n=50),
+   annotation_col=colDataColorsRepL[iSamplesCB,2:1],
+   annotation_row=colDataColorsRepL[iSamplesCB,2:1],
+   annotation_colors=pheat_colors
+);
+
+```
+
+For sake of comparison, create the same heatmap using ComplexHeatmap
+
+```{r sample_corr_cb_CH, fig.height=8, fig.width=10}
+#require(ComplexHeatmap);
+cBR <- circlize::colorRamp2(breaks=pheat_breaks,
+   col=getColorRamp("RdBu_r", n=51));
+
+colHA <- HeatmapAnnotation(colDataColorsRepL[iSamplesCB,2:1],
+   show_annotation_name=TRUE,
+   col=pheat_colors);
+rowA <- rowAnnotation(colDataColorsRepL[iSamplesCB,2:1],
+   col=pheat_colors,
+   show_annotation_name=TRUE,
+   show_legend=FALSE);
+
+corHM <- Heatmap(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
+   name="Correlation",
+   column_dend_height=unit(20, "mm"),
+   row_dend_width=unit(20, "mm"),
+   top_annotation=colHA,
+   col=cBR);
+draw(rowA + corHM, row_dend_side="left");
+
+if (1 == 2) {
+   ## For now, commenting out custom heatmap function
+   par("family"="Arial", "lend"="square", "ljoin"="mitre");
+   heatmap.3(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
+      margins=c(15,15),
+      trace="none",
+      tracecol="transparent",
+      col=colorRampPalette(rev(brewer.pal(15,"RdBu")))(51),
+      add.expr=box(),
+      cexCol=1.5,
+      cexRow=1.5,
+      keyLabel="Correlation",
+      colLensFactor=10,
+      distMethod="euclidean",
+      hclustMethod="ward",
+      doColorDendrograms=TRUE,
+      ColSideColors=t(colDataColorsRep[iSamplesCB,2:1]),
+      ColSideColorsNote=t(colDataColorsRepL[iSamplesCB,2:1]),
+      RowSideColors=(colDataColorsRep[iSamplesCB,2:1]),
+      RowSideColorsNote=(colDataColorsRepL[iSamplesCB,2:1]) );
+}
 ```
 
 
@@ -419,40 +465,76 @@ iMatrix7grp <- farrisGeneGroupMedians[genesAboveCutoffCB,];
 centerGroupsGrp <- gsub("^.*(DE|CB).*$",
    "\\1",
    iSamplesGrp);
+## 31oct2018 using mean instead of median
 iMatrix7grpCtr <- centerGeneData(iMatrix7grp,
-   centerGroups=centerGroupsGrp);
+   centerGroups=centerGroupsGrp,
+   mean=TRUE);
 iMatrix7grpCtrCor <- cor(iMatrix7grpCtr);
 
 ## Generate some color bars to annotate the heatmap
 colDataColorsGrpL <- data.frame(rbindList(
    strsplit(nameVector(iSamplesGrp), "_")));
 colnames(colDataColorsGrpL) <- c("CellType","Compartment");
-colDataColorsGrp <- df2groupColors(colDataColorsGrpL,
+colDataColorsGrp <- df2colorSub(colDataColorsGrpL,
   colorSub=colorSub);
 ```
 
-We use `heatmap.3()` to draw the heatmap.
+We use `pheatmap()` (not yet using `heatmap.3()`) to draw the heatmap.
 
-```{r corr_by_compartment, fig.height=8, fig.width=8}
-par("family"="Arial", "lend"="square", "ljoin"="mitre");
-heatmap.3(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
-   margins=c(15,15),
-   trace="none",
-   hclCutoff=70,
-   cexColSideColorsNote=1.2,
-   cexRowSideColorsNote=1.2,
-   col=colorRampPalette(rev(brewer.pal(15,"RdBu")))(51),
-   add.expr=box(),
-   cexCol=1.5,
-   cexRow=1.5,
-   keyLabel="Correlation",
-   colLensFactor=10,
-   distMethod="euclidean",
-   hclustMethod="ward",
-   ColSideColors=t(colDataColorsGrp[iSamplesGrp,2:1]),
-   ColSideColorsNote=t(colDataColorsGrpL[iSamplesGrp,2:1]),
-   RowSideColors=(colDataColorsGrp[iSamplesGrp,2:1]),
-   RowSideColorsNote=(colDataColorsGrpL[iSamplesGrp,2:1]) );
+```{r corr_by_compartment, fig.height=8, fig.width=10}
+pheatmap(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
+   breaks=seq(from=-1, to=1, length.out=51),
+   border_color=NA,
+   #display_numbers=TRUE, number_color="grey20",
+   #cutree_rows=4, cutree_cols=4,
+   annotation_names_col=TRUE,
+   color=getColorRamp("RdBu_r", n=50),
+   annotation_col=colDataColorsGrpL[iSamplesGrp,2:1],
+   annotation_row=colDataColorsGrpL[iSamplesGrp,2:1],
+   annotation_colors=pheat_colors
+);
+if (1 == 2) {
+   par("family"="Arial", "lend"="square", "ljoin"="mitre");
+   heatmap.3(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
+      margins=c(15,15),
+      trace="none",
+      tracecol="transparent",
+      hclCutoff=70,
+      cexColSideColorsNote=1.2,
+      cexRowSideColorsNote=1.2,
+      col=colorRampPalette(rev(brewer.pal(15,"RdBu")))(51),
+      add.expr=box(),
+      cexCol=1.5,
+      cexRow=1.5,
+      keyLabel="Correlation",
+      colLensFactor=10,
+      distMethod="euclidean",
+      hclustMethod="ward",
+      ColSideColors=t(colDataColorsGrp[iSamplesGrp,2:1]),
+      ColSideColorsNote=t(colDataColorsGrpL[iSamplesGrp,2:1]),
+      RowSideColors=(colDataColorsGrp[iSamplesGrp,2:1]),
+      RowSideColorsNote=(colDataColorsGrpL[iSamplesGrp,2:1]) );
+}
+```
+
+ComplexHeatmap version:
+
+```{r corr_by_compartment_CB, fig.height=8, fig.width=10}
+colHA2 <- HeatmapAnnotation(colDataColorsGrpL[iSamplesGrp,2:1],
+   show_annotation_name=TRUE,
+   col=pheat_colors);
+rowA2 <- rowAnnotation(colDataColorsGrpL[iSamplesGrp,2:1],
+   col=pheat_colors,
+   show_annotation_name=TRUE,
+   show_legend=FALSE);
+
+corHM2 <- Heatmap(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
+   name="Correlation",
+   column_dend_height=unit(20, "mm"),
+   row_dend_width=unit(20, "mm"),
+   top_annotation=colHA2,
+   col=cBR);
+draw(rowA2 + corHM2, row_dend_side="left");
 ```
 
 #### Splom plot, refers to Figure 2, and Supplemental Figure 3
@@ -462,8 +544,8 @@ helps define the gene lists in the next section.
 
 ```{r splom_CA2, fig.height=8, fig.width=8}
 corCols <- c("CA2_DE","CA2_CB");
-cutCB <- log2(1.5);
-cutDE <- log2(1.5);
+cutCB <- round(digits=3, log2(1.5));
+cutDE <- round(digits=3, log2(1.5));
 splomL <- lapply(nameVector(c("CA1","CA2","CA3","DG")), function(k) {
    corCols <- vigrep(k, colnames(iMatrix7grpCtr));
    df1 <- as.data.frame(iMatrix7grpCtr[,corCols]);
@@ -476,6 +558,7 @@ splomL <- lapply(nameVector(c("CA1","CA2","CA3","DG")), function(k) {
    df1[,"GeneName"] <- rownames(df1);
    df1;
 });
+#table(splomL[[1]][,3:4])
 splomLsub <- lapply(splomL, function(iDF){
    subset(iDF, !iDF[,3] %in% 0 | !iDF[,4] %in% 0)
 });
@@ -497,6 +580,12 @@ ccColors[c("-1:1","1:-1")] <- "grey";
 GeneHighlight <- c("Plch2","Rgs14","Necab2","1700024P16Rik");
 splomDF2$label <- ifelse(splomDF2$GeneName %in% GeneHighlight,
   splomDF2$GeneName, "");
+
+
+splomDF2[,"CBmaxGroupMean"] <- rowMaxs(farrisGeneGroupMedians[splomDF2$GeneName,iSamplesGrpCB]);
+splomDF2[,"DEmaxGroupMean"] <- rowMaxs(farrisGeneGroupMedians[splomDF2$GeneName,iSamplesGrpDE]);
+splomDF2[,"CBdet7"] <- (splomDF2[,"CBmaxGroupMean"] > 7)+0;
+splomDF2[,"DEdet7"] <- (splomDF2[,"DEmaxGroupMean"] > 7)+0;
 
 gg2 <- ggplot(splomDF2,
       aes(x=CB, y=DE, color=CBDEhit, fill=CBDEhit, GeneName=GeneName)) +
@@ -520,6 +609,45 @@ Microarray correlation heatmap.
 ### Neuronal Gene Lists
 
 (Description of the four gene/transcript lists)
+
+```{r neuronal_gene_lists}
+## anyGenes1 is the full set of all genes with abundance > 1
+anyGenes1 <- rownames(farrisGeneGroupMedians)[rowMaxs(farrisGeneGroupMedians) > 1];
+
+## Filtering rules for CB and DE
+corFilterRuleCB <- (rowMaxs(farrisGeneGroupMedians[,iSamplesGrpCB]) >= 7);
+corFilterRuleDE <- (rowMaxs(farrisGeneGroupMedians[,iSamplesGrpDE]) >= 7);
+corFilterRule <- (corFilterRuleCB);
+
+DEgenes7 <- rownames(farrisGeneGroupMedians)[corFilterRuleDE];
+CBgenes7 <- rownames(farrisGeneGroupMedians)[corFilterRuleCB];
+DEgenes7nonCB7 <- setdiff(DEgenes7, CBgenes7); # non-pyramidal
+CBgenes7nonDE7 <- setdiff(CBgenes7, DEgenes7); # "non-DE genes"
+DEgenes7andCB7 <- intersect(DEgenes7, CBgenes7);   # "DE genes"
+
+## Define neuro gene lists
+geneListsAll <- list(anyGenes1=anyGenes1,
+   DEandCB=DEgenes7andCB7, # detected
+   CBonly=CBgenes7nonDE7,  # detected only CB, not detected DE
+   `non-pyramidal`=DEgenes7nonCB7,
+   `CB1andDE1`=unique(subset(splomDF2,
+      CBDEhit %in% "1:1" &
+      CBdet7 %in% c(1) &
+      DEdet7 %in% c(1))$GeneName)
+   );
+#lengths(geneListsAll);
+geneListsDF <- data.frame(GeneList=names(geneListsAll),
+   GeneCount=format(lengths(geneListsAll), big.mark=",", trim=TRUE));
+rownames(geneListsDF) <- NULL;
+geneListsDF2 <- kable_coloring(geneListsDF,
+      colorSub=group2colors(names(geneListsAll)),
+      row_color_by="GeneList",
+      returnType="kable") %>%
+   row_spec(0, background="#DDDDDD")
+geneListsDF2;
+
+```
+
 
 Heatmap per-gene.
 
@@ -545,23 +673,30 @@ a TPM value of 2.
 "detected."
 
 ```{r, detectedTxTPM}
-refreshFunctions("farrisSalmonWWS");
+#refreshFunctions("farrisSalmonWWS");
+#detectedTxTPML <- try(defineDetectedTx(
 detectedTxTPML <- defineDetectedTx(
-   iMatrixTx=assays(farrisSalmonTxSE)[["counts"]],
-   iMatrixTxTPM=assays(farrisSalmonTxSE)[["tpm"]],
-   groups=colData(farrisSalmonTxSE)$groupName,
+   iMatrixTx=assays(farrisTxSE)[["counts"]],
+   iMatrixTxTPM=assays(farrisTxSE)[["tpm"]],
+   groups=colData(farrisTxSE)$groupName,
    cutoffTxPctMax=10,
    cutoffTxExpr=32,
    cutoffTxTPMExpr=2,
-   tx2geneDF=renameColumn(rowData(farrisSalmonTxSE),
+   tx2geneDF=renameColumn(rowData(farrisTxSE),
      from=c("geneSymbol","probeID"),
      to=c("gene_name","transcript_id")),
    useMedian=FALSE,
    verbose=FALSE);
+detectedTx <- detectedTxTPML$detectedTx;
+numDetectedTx <- length(detectedTx);
+detectedGenes <- mixedSort(unique(rowData(farrisTxSE[detectedTx,])$geneSymbol));
+numDetectedGenes <- length(detectedGenes);
 ```
 
-The code above defined **`r formatInt(length(detectedTxTPML$detectedTx))` detected
-transcripts** by the given criteria.
+The code above defined
+**`r format(numDetectedTx, big.mark=",")` detected
+transcripts** by the given criteria,
+covering **`r format(numDetectedGenes, big.mark=",")` unique gene symbols**.
 
 
 ### Transcript type per gene list
@@ -573,8 +708,8 @@ e.g. protein_coding, etc.
 
 We imported Gencode vM12 comprehensive GTF into R using
 R Bioconductor GenomicFeatures package, with which we derived
-3'UTR regions, using `makeTxDbFromGFF()` and `threeUTRsByTranscript()`,
-respectively.
+3'UTR regions, using `GenomicFeatures::makeTxDbFromGFF()` and
+`GenomicFeatures::threeUTRsByTranscript()`, respectively.
 
 We plotted 3'UTR lengths as violin plots using only detected transcripts
 based upon TPM criteria described elsewhere.
