@@ -1,0 +1,9 @@
+^.*.Rproj.user
+.Rhistory
+.RData
+inst/doc
+.Rproj.user
+farrisSeq_cache
+farrisSeq_files
+gencode.*
+vM12gtf.*
