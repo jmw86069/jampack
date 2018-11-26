@@ -29,7 +29,6 @@ suppressPackageStartupMessages(library(dplyr));
 suppressPackageStartupMessages(library(plotly));
 suppressPackageStartupMessages(library(made4));
 suppressPackageStartupMessages(library(matrixStats));
-suppressPackageStartupMessages(library(pheatmap));
 suppressPackageStartupMessages(library(ComplexHeatmap));
 
 suppressPackageStartupMessages(library(ggplot2));
@@ -335,7 +334,13 @@ GeneListL <- list(
   Nakayama=NakayamaGenes);
 GeneListIM <- list2im(GeneListL);
 vps <- limma::vennDiagram(GeneListIM,
-  circle.col=rainbowJam(4));
+   circle.col=rainbowJam(4));
+
+vps2 <- venn(GeneListL,
+   show.plot=FALSE);
+## Retrieve specific overlaps like this:
+vps2vennL <- attr(vps2, "intersections");
+## vps2vennL[["Farris:Cajigas:Ainsley:Nakayama"]]
 ```
 
 ### Correlation Centered by Compartment, refers to Figure 2
@@ -387,30 +392,13 @@ colDataColorsRepL <- as.data.frame(colData(farrisGeneSE)[,c("CellType","Compartm
 colDataColorsRep <- df2colorSub(colDataColorsRepL, colorSub=colorSub);
 ```
 
-We use `pheatmap()` (not yet using `heatmap.3()`) to draw the heatmap.
+Heatmap using ComplexHeatmap:
 
-```{r sample_corr_cb, fig.height=8, fig.width=10}
+```{r sample_corr_cb_CH, fig.height=8, fig.width=10}
 pheat_colors <- list(Compartment=colorSub[c("CB","DE")],
    CellType=colorSub[c("CA1","CA2","CA3","DG")]);
 pheat_breaks <- warpAroundZero(seq(from=-1, to=1, length.out=51), lens=1);
-pheatmap(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
-   breaks=pheat_breaks,
-   border_color=NA,
-   #display_numbers=TRUE, number_color="grey80",
-   #cutree_rows=4, cutree_cols=4,
-   annotation_names_col=TRUE,
-   color=getColorRamp("RdBu_r", n=50),
-   annotation_col=colDataColorsRepL[iSamplesCB,2:1],
-   annotation_row=colDataColorsRepL[iSamplesCB,2:1],
-   annotation_colors=pheat_colors
-);
 
-```
-
-For sake of comparison, create the same heatmap using ComplexHeatmap
-
-```{r sample_corr_cb_CH, fig.height=8, fig.width=10}
-#require(ComplexHeatmap);
 cBR <- circlize::colorRamp2(breaks=pheat_breaks,
    col=getColorRamp("RdBu_r", n=51));
 
@@ -424,6 +412,8 @@ rowA <- rowAnnotation(colDataColorsRepL[iSamplesCB,2:1],
 
 corHM <- Heatmap(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
    name="Correlation",
+   clustering_method_columns="ward.D",
+   clustering_method_rows="ward.D",
    column_dend_height=unit(20, "mm"),
    row_dend_width=unit(20, "mm"),
    top_annotation=colHA,
@@ -479,45 +469,7 @@ colDataColorsGrp <- df2colorSub(colDataColorsGrpL,
   colorSub=colorSub);
 ```
 
-We use `pheatmap()` (not yet using `heatmap.3()`) to draw the heatmap.
-
-```{r corr_by_compartment, fig.height=8, fig.width=10}
-pheatmap(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
-   breaks=seq(from=-1, to=1, length.out=51),
-   border_color=NA,
-   #display_numbers=TRUE, number_color="grey20",
-   #cutree_rows=4, cutree_cols=4,
-   annotation_names_col=TRUE,
-   color=getColorRamp("RdBu_r", n=50),
-   annotation_col=colDataColorsGrpL[iSamplesGrp,2:1],
-   annotation_row=colDataColorsGrpL[iSamplesGrp,2:1],
-   annotation_colors=pheat_colors
-);
-if (1 == 2) {
-   par("family"="Arial", "lend"="square", "ljoin"="mitre");
-   heatmap.3(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
-      margins=c(15,15),
-      trace="none",
-      tracecol="transparent",
-      hclCutoff=70,
-      cexColSideColorsNote=1.2,
-      cexRowSideColorsNote=1.2,
-      col=colorRampPalette(rev(brewer.pal(15,"RdBu")))(51),
-      add.expr=box(),
-      cexCol=1.5,
-      cexRow=1.5,
-      keyLabel="Correlation",
-      colLensFactor=10,
-      distMethod="euclidean",
-      hclustMethod="ward",
-      ColSideColors=t(colDataColorsGrp[iSamplesGrp,2:1]),
-      ColSideColorsNote=t(colDataColorsGrpL[iSamplesGrp,2:1]),
-      RowSideColors=(colDataColorsGrp[iSamplesGrp,2:1]),
-      RowSideColorsNote=(colDataColorsGrpL[iSamplesGrp,2:1]) );
-}
-```
-
-ComplexHeatmap version:
+Heatmap using ComplexHeatmap:
 
 ```{r corr_by_compartment_CB, fig.height=8, fig.width=10}
 colHA2 <- HeatmapAnnotation(colDataColorsGrpL[iSamplesGrp,2:1],
@@ -530,6 +482,8 @@ rowA2 <- rowAnnotation(colDataColorsGrpL[iSamplesGrp,2:1],
 
 corHM2 <- Heatmap(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
    name="Correlation",
+   clustering_method_columns="ward.D",
+   clustering_method_rows="ward.D",
    column_dend_height=unit(20, "mm"),
    row_dend_width=unit(20, "mm"),
    top_annotation=colHA2,
@@ -703,6 +657,46 @@ covering **`r format(numDetectedGenes, big.mark=",")` unique gene symbols**.
 
 e.g. protein_coding, etc.
 
+First, as a point of organizing the transcript-gene associations,
+we read the Gencode GTF file and produce a `data.frame` with the
+transcript-gene data.
+
+Note: This step downloads the Gencode GTF file for version vM12,
+then extracts data from that file. Once the `data.frame` is extracted,
+it is stored in a text file for re-use.
+
+```{r, tx2geneDF}
+vM12gtf <- "ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M12/gencode.vM12.annotation.gtf.gz";
+vM12gtfBase <- basename(vM12gtf);
+if (!file.exists(vM12gtfBase)) {
+   curl::curl_download(url=vM12gtf,
+      destfile=vM12gtfBase);
+}
+tx2geneFile <- file.path(".", "vM12gtf.tx2geneDF.txt");
+if (!file.exists(tx2geneFile)) {
+   tx2geneDF <- makeTx2geneFromGtf(GTF=vM12gtfBase,
+      verbose=FALSE);
+   write.table(file=tx2geneFile,
+      x=tx2geneDF,
+      sep="\t",
+      quote=FALSE,
+      na="",
+      col.names=TRUE,
+      row.names=FALSE);
+} else {
+   tx2geneDF <- read.table(tx2geneFile,
+      sep="\t",
+      check.names=FALSE,
+      as.is=TRUE,
+      fill=TRUE,
+      quote="\"",
+      allowEscapes=FALSE,
+      comment.char="",
+      header=TRUE,
+      stringsAsFactor=FALSE);
+}
+```
+
 
 ### Analysis of 3'UTR length
 
@@ -710,6 +704,33 @@ We imported Gencode vM12 comprehensive GTF into R using
 R Bioconductor GenomicFeatures package, with which we derived
 3'UTR regions, using `GenomicFeatures::makeTxDbFromGFF()` and
 `GenomicFeatures::threeUTRsByTranscript()`, respectively.
+
+This step re-uses the Gencode GTF file downloaded above, then
+converts it to a "Txdb" object, which is a SQLite relational database
+format. This database is saved into a file so it can be recalled
+without re-creating the file again.
+
+```{r, gencode_vM12_gtf}
+localDb <- file.path(".", "vM12gtf.txdb");
+if (!file.exists(localDb)) {
+   vM12txdb <- GenomicFeatures::makeTxDbFromGFF(vM12gtfBase);
+   AnnotationDbi::saveDb(x=vM12txdb, file=localDb);
+} else {
+   vM12txdb <- AnnotationDbi::loadDb(file=localDb);
+}
+```
+
+```{r, three_utr_length}
+gencode3utr <- GenomicFeatures::threeUTRsByTranscript(vM12txdb,
+   use.names=TRUE);
+values(gencode3utr@unlistData)[,"transcript_id"] <- rep(names(gencode3utr), lengths(gencode3utr));
+values(gencode3utr@unlistData)[,"gene_id"] <- tx2geneDF[values(gencode3utr@unlistData)[,"transcript_id"],"gene_id"];
+values(gencode3utr@unlistData)[,"gene_name"] <- tx2geneDF[values(gencode3utr@unlistData)[,"transcript_id"],"gene_name"];
+values(gencode3utr@unlistData)[,"gene_type"] <- tx2geneDF[values(gencode3utr@unlistData)[,"transcript_id"],"gene_type"];
+values(gencode3utr@unlistData)[,"transcript_type"] <- tx2geneDF[values(gencode3utr@unlistData)[,"transcript_id"],"transcript_type"];
+names(gencode3utr@unlistData) <- pasteByRow(values(gencode3utr@unlistData)[,c("transcript_id","exon_rank")]);
+
+```
 
 We plotted 3'UTR lengths as violin plots using only detected transcripts
 based upon TPM criteria described elsewhere.
