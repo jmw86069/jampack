@@ -21,7 +21,7 @@ always_allow_html: yes
 ```{r setup, include=FALSE}
 ## To render this page:
 ## In the farrisSeq folder run:
-## rmarkdown::render("farrisSeq.Rmd", "html_document");
+## rmarkdown::render("farrisSeq.Rmd", "html_document", knit_root_dir=getwd(), output_dir=getwd());
 
 suppressPackageStartupMessages(library(knitr));
 suppressPackageStartupMessages(library(kableExtra));
@@ -720,7 +720,7 @@ if (!file.exists(localDb)) {
 }
 ```
 
-```{r, three_utr_length}
+```{r, three_utr_length, dependson=c("gencode_vM12_gtf","tx2geneDF")}
 gencode3utr <- GenomicFeatures::threeUTRsByTranscript(vM12txdb,
    use.names=TRUE);
 values(gencode3utr@unlistData)[,"transcript_id"] <- rep(names(gencode3utr), lengths(gencode3utr));
@@ -737,6 +737,42 @@ based upon TPM criteria described elsewhere.
 
 
 ### Translational Efficiency using CAI
+
+```{r, codon_usage}
+## The Mouse codon usage file is available in the splicejam package
+mouseCodonTxtFile <- system.file("extdata", "Mouse_codon_usage.txt", package="farrisdata")
+#mouseCodonTxtFile <- "~/Projects/R-scripts/Mouse_codon_usage.txt";
+codonDF <- codonUsage2df(mouseCodonTxtFile);
+
+## Next load table of CAI data, from the seqinr package
+data(caitab, package="seqinr");
+
+## Use data in the same order as caitab
+mouseCodonDF <- codonDF[match(rownames(caitab), rownames(codonDF)),,drop=FALSE];
+
+## Translate codon to amino acid
+transV <- sapply(rownames(mouseCodonDF), function(i){
+   seqinr::translate(unlist(strsplit(i, "")));
+});
+## Split codons into a list by amino acid
+transL <- split(names(transV), transV);
+mouseCodonDF2 <- rbindList(lapply(names(transL), function(j){
+   i <- transL[[j]];
+   iDF <- mouseCodonDF[i,,drop=FALSE];
+   iDF[,2] <- iDF[,2] / max(iDF[,2]);
+   iDF[,"aa"] <- j;
+   iDF;
+}));
+## Add number of codons per aa
+mouseCodonDF2[,"degen"] <- lengths(transL)[mouseCodonDF2$aa];
+
+## Change the frequency for stop codons to zero,
+## since we are positing the frequency is proportional
+## to readthrough efficiency.
+mouseCodonDF2[mouseCodonDF2$aa %in% "*","frequency"] <- 0;
+
+## Work in progress...
+```
 
 
 ### Proximal-Distal 3'UTR Analysis
