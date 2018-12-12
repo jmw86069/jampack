@@ -30,6 +30,7 @@ suppressPackageStartupMessages(library(plotly));
 suppressPackageStartupMessages(library(made4));
 suppressPackageStartupMessages(library(matrixStats));
 suppressPackageStartupMessages(library(ComplexHeatmap));
+suppressPackageStartupMessages(library(SummarizedExperiment));
 
 suppressPackageStartupMessages(library(ggplot2));
 suppressPackageStartupMessages(library(ggrepel));
@@ -94,8 +95,6 @@ R object `farrisGeneSE`, which is available in the R data package
 
 ```{r load_gene_data}
 ## Load the gene data
-library(farrisdata);
-library(SummarizedExperiment);
 farrisGeneSE;
 ```
 
@@ -117,10 +116,10 @@ accessible, using this command: `assays(farrisGeneSE)[["raw_counts"]]`
 
 * **rowData** data.frame with gene rows, using the gene symbol derived from
 the Gencode GTF file. 
-```{r, gene_table}
+```{r, gene_table, dependson="load_gene_data"}
 as.data.frame(head(rowData(farrisGeneSE), 10)) %>%
    mutate() %>%
-   select(probeID, geneSymbol, ends_with("_type"),
+   dplyr::select(probeID, geneSymbol, ends_with("_type"),
       contains("has")) %>%
    kable(escape=FALSE) %>%
    kable_styling()
@@ -128,7 +127,7 @@ as.data.frame(head(rowData(farrisGeneSE), 10)) %>%
 
 * **colData** annotated data.frame with sample rows, describing the
 mouse hippocampal **Region**, **CellType**, **Sample**, and **groupName**.
-```{r, sample_table, echo=FALSE}
+```{r, sample_table, echo=FALSE, dependson="load_gene_data"}
 df2 <- kable_coloring(colData(farrisGeneSE),
       colorSub=colorSub,
       row_color_by="groupName",
@@ -159,7 +158,7 @@ maintaining individual isoform abundances, then stored in an R object
 
 ```{r load_tx_data}
 ## Load the gene data
-farrisTxSE;
+data(farrisTxSE);
 ```
 
 #### farrisTxSE format
@@ -172,10 +171,10 @@ sample columns, with log2 median-normalized counts. Each row is named
 using a unique gene symbol derived from the Gencode GTF file.
 * **rowData** data.frame with gene rows, using the gene symbol derived from
 the Gencode GTF file.
-```{r, tx_table}
+```{r, tx_table, dependson="load_tx_data"}
 tx_df <- subset(as.data.frame(rowData(farrisTxSE)),
    geneSymbol %in% c("Gria1","Shank2","Ntrk2")) %>%
-   select(geneSymbol,
+   dplyr::select(geneSymbol,
       transcript_id,
       ends_with("_type"),
       contains("has"),
@@ -266,7 +265,7 @@ Gencode vM12 transcripts flattened per gene.
 
 ### BGA plot
 
-```{r bga_plot}
+```{r bga_plot, dependson="load_gene_data"}
 bgaExprs <- assays(farrisGeneSE)$counts;
 bgaExprs[bgaExprs < 7] <- 7;
 bgaExprsUse <- bgaExprs[rowMins(bgaExprs) < rowMaxs(bgaExprs),,drop=FALSE];
@@ -278,7 +277,7 @@ salmonBga1 <- bga(dataset=bgaExprsUse,
    type="coa");
 ```
 
-```{r bga_plotly}
+```{r bga_plotly, dependson="bga_plot"}
 salmonBga1ly <- bgaPlotly3d(salmonBga1,
    axes=c(1,2,3),
    colorSub=colorSub,
@@ -290,8 +289,6 @@ salmonBga1ly <- bgaPlotly3d(salmonBga1,
    sceneX=0, sceneY=1, sceneZ=1,
    verbose=FALSE);
 salmonBga1ly;
-# sys.source("/Users/wardjm/Projects/R-scripts/bga_functions.R", envir=bga_env, keep.source=TRUE);
-# attach(bga_env);detach(pos=tail(igrep("bga_env", search()), -1));
 ```
 
 ### Comparison with CA1 published data by Nakayama, Ainsley, Cajigas
@@ -300,7 +297,7 @@ First we calculate group medians using gene expression data, to determine
 the set of genes detected above an expression threshold of 128 pseudocounts
 (log2 = 7).
 
-```{r genes_detected_CA1, fig.height=9, fig.width=6}
+```{r genes_detected_CA1, fig.height=9, fig.width=6, dependson="load_gene_data"}
 farrisGeneGroupMedians <- rowGroupMeans(assays(farrisGeneSE)[["counts"]],
    groups=colData(farrisGeneSE)$groupName,
    useMedian=TRUE);
@@ -326,7 +323,7 @@ as described above.
 Produce a 4-way Venn diagram showing the overlapping genes from these
 studies.
 
-```{r venn_4_way, fig.height=8, fig.width=8}
+```{r venn_4_way, fig.height=8, fig.width=8, dependson="genes_detected_CA1"}
 GeneListL <- list(
   Farris=CA1detCBandDE,
   Cajigas=CajigasGenes,
@@ -361,7 +358,7 @@ argument `centerGroups`.
 Next we prepare a data.frame with color coding to show the
 CellType and Compartment values.
 
-```{r sample_corr_cb_prep}
+```{r sample_corr_cb_prep, dependson=c("load_gene_data","genes_detected_CA1")}
 ## farrisGeneGroupMedians
 ## Pull out only cell body samples
 iSamples <- colnames(farrisGeneSE);
@@ -394,7 +391,7 @@ colDataColorsRep <- df2colorSub(colDataColorsRepL, colorSub=colorSub);
 
 Heatmap using ComplexHeatmap:
 
-```{r sample_corr_cb_CH, fig.height=8, fig.width=10}
+```{r sample_corr_cb_CH, fig.height=8, fig.width=10, dependson="sample_corr_cb_prep"}
 pheat_colors <- list(Compartment=colorSub[c("CB","DE")],
    CellType=colorSub[c("CA1","CA2","CA3","DG")]);
 pheat_breaks <- warpAroundZero(seq(from=-1, to=1, length.out=51), lens=1);
@@ -420,27 +417,6 @@ corHM <- Heatmap(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
    col=cBR);
 draw(rowA + corHM, row_dend_side="left");
 
-if (1 == 2) {
-   ## For now, commenting out custom heatmap function
-   par("family"="Arial", "lend"="square", "ljoin"="mitre");
-   heatmap.3(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
-      margins=c(15,15),
-      trace="none",
-      tracecol="transparent",
-      col=colorRampPalette(rev(brewer.pal(15,"RdBu")))(51),
-      add.expr=box(),
-      cexCol=1.5,
-      cexRow=1.5,
-      keyLabel="Correlation",
-      colLensFactor=10,
-      distMethod="euclidean",
-      hclustMethod="ward",
-      doColorDendrograms=TRUE,
-      ColSideColors=t(colDataColorsRep[iSamplesCB,2:1]),
-      ColSideColorsNote=t(colDataColorsRepL[iSamplesCB,2:1]),
-      RowSideColors=(colDataColorsRep[iSamplesCB,2:1]),
-      RowSideColorsNote=(colDataColorsRepL[iSamplesCB,2:1]) );
-}
 ```
 
 
@@ -449,7 +425,7 @@ if (1 == 2) {
 Correlation showing CA2_CB correlates highest with CA2_DE,
 etc. for each CellType.
 
-```{r corr_by_compartment_prep}
+```{r corr_by_compartment_prep, dependson=c("load_gene_data","genes_detected_CA1")}
 ## farrisGeneGroupMedians[genesAboveCutoff,]
 iMatrix7grp <- farrisGeneGroupMedians[genesAboveCutoffCB,];
 centerGroupsGrp <- gsub("^.*(DE|CB).*$",
@@ -471,7 +447,7 @@ colDataColorsGrp <- df2colorSub(colDataColorsGrpL,
 
 Heatmap using ComplexHeatmap:
 
-```{r corr_by_compartment_CB, fig.height=8, fig.width=10}
+```{r corr_by_compartment_CB, fig.height=8, fig.width=10, dependson="corr_by_compartment_prep"}
 colHA2 <- HeatmapAnnotation(colDataColorsGrpL[iSamplesGrp,2:1],
    show_annotation_name=TRUE,
    col=pheat_colors);
@@ -496,7 +472,7 @@ draw(rowA2 + corHM2, row_dend_side="left");
 Scatterplot showing the +1,+1 selection of genes, which
 helps define the gene lists in the next section.
 
-```{r splom_CA2, fig.height=8, fig.width=8}
+```{r splom_CA2, fig.height=8, fig.width=8, dependson="corr_by_compartment_prep"}
 corCols <- c("CA2_DE","CA2_CB");
 cutCB <- round(digits=3, log2(1.5));
 cutDE <- round(digits=3, log2(1.5));
@@ -569,8 +545,9 @@ Microarray correlation heatmap.
 anyGenes1 <- rownames(farrisGeneGroupMedians)[rowMaxs(farrisGeneGroupMedians) > 1];
 
 ## Filtering rules for CB and DE
-corFilterRuleCB <- (rowMaxs(farrisGeneGroupMedians[,iSamplesGrpCB]) >= 7);
-corFilterRuleDE <- (rowMaxs(farrisGeneGroupMedians[,iSamplesGrpDE]) >= 7);
+## corrCutoff is 7
+corFilterRuleCB <- (rowMaxs(farrisGeneGroupMedians[,iSamplesGrpCB]) >= corrCutoff);
+corFilterRuleDE <- (rowMaxs(farrisGeneGroupMedians[,iSamplesGrpDE]) >= corrCutoff);
 corFilterRule <- (corFilterRuleCB);
 
 DEgenes7 <- rownames(farrisGeneGroupMedians)[corFilterRuleDE];
@@ -695,6 +672,159 @@ if (!file.exists(tx2geneFile)) {
       header=TRUE,
       stringsAsFactor=FALSE);
 }
+
+```
+
+#### Transcript lists per cell type
+
+The code below creates transcript lists equivalent to the neuronal
+gene lists above. The main distinction is the filtering is applied
+to transcript-level data, as opposed to gene-level summary data
+above. While a gene may be present in one category, perhaps only a
+subset of its transcript isoforms may be present in that category.
+
+The transcript-level subsets are used to produce the 3-prime UTR
+and CAI plots in subsequent figures.
+
+```{r, neuronal_tx_lists}
+## First calculate per-transcript group expression values
+farrisTxGroupMedians <- rowGroupMeans(assays(farrisTxSE)[["counts"]],
+   groups=colData(farrisTxSE)$groupName,
+   useMedian=TRUE);
+farrisTxTPMGroupMedians <- rowGroupMeans(assays(farrisTxSE)[["tpm"]],
+   groups=colData(farrisTxSE)$groupName,
+   useMedian=TRUE);
+
+## Define cutoffs using CB and DE samples
+detectedTxTPManyL <- defineDetectedTx(
+   iMatrixTx=assays(farrisTxSE[,iSamplesCB])[["counts"]],
+   iMatrixTxTPM=assays(farrisTxSE[,iSamplesCB])[["tpm"]],
+   groups=colData(farrisTxSE[,iSamplesCB])$groupName,
+   cutoffTxPctMax=0,
+   cutoffTxExpr=5,
+   cutoffTxTPMExpr=1,
+   tx2geneDF=renameColumn(rowData(farrisTxSE),
+     from=c("geneSymbol","probeID"),
+     to=c("gene_name","transcript_id")),
+   useMedian=FALSE,
+   verbose=FALSE);
+## Define cutoffs using cell body (CB) samples
+detectedTxCBTPML <- defineDetectedTx(
+   iMatrixTx=assays(farrisTxSE[,iSamplesCB])[["counts"]],
+   iMatrixTxTPM=assays(farrisTxSE[,iSamplesCB])[["tpm"]],
+   groups=colData(farrisTxSE[,iSamplesCB])$groupName,
+   cutoffTxPctMax=10,
+   cutoffTxExpr=32,
+   cutoffTxTPMExpr=2,
+   tx2geneDF=renameColumn(rowData(farrisTxSE),
+     from=c("geneSymbol","probeID"),
+     to=c("gene_name","transcript_id")),
+   useMedian=FALSE,
+   verbose=FALSE);
+detectedTxTPMCB <- detectedTxCBTPML$detectedTx;
+## Define cutoffs using cell body (DE) samples
+detectedTxDETPML <- defineDetectedTx(
+   iMatrixTx=assays(farrisTxSE[,iSamplesDE])[["counts"]],
+   iMatrixTxTPM=assays(farrisTxSE[,iSamplesDE])[["tpm"]],
+   groups=colData(farrisTxSE[,iSamplesDE])$groupName,
+   cutoffTxPctMax=10,
+   cutoffTxExpr=32,
+   cutoffTxTPMExpr=2,
+   tx2geneDF=renameColumn(rowData(farrisTxSE),
+     from=c("geneSymbol","probeID"),
+     to=c("gene_name","transcript_id")),
+   useMedian=FALSE,
+   verbose=FALSE);
+detectedTxTPMDE <- detectedTxDETPML$detectedTx;
+
+## Center data within Compartment
+farrisTxTPMGroupMediansCtr2 <- centerGeneData(farrisTxTPMGroupMedians,
+   centerGroups=gsub("^.+_", "", colnames(farrisTxTPMGroupMedians)),
+   mean=TRUE, showGroups=FALSE);
+
+
+## anyTx1 is the full set of all transcripts with abundance > 1
+anyTx1 <- rownames(farrisTxGroupMedians)[rowMaxs(farrisTxGroupMedians) > 1];
+
+## Filtering rules for CB and DE
+## corrCutoff is 7
+corFilterRuleTxCB <- (rowMaxs(farrisTxGroupMedians[,iSamplesGrpCB]) >= corrCutoff);
+corFilterRuleTxDE <- (rowMaxs(farrisTxGroupMedians[,iSamplesGrpDE]) >= corrCutoff);
+corFilterRuleTx <- (corFilterRuleTxCB);
+
+## Subsets of detected transcripts
+DEtx7 <- rownames(farrisTxGroupMedians)[corFilterRuleTxDE];
+CBtx7 <- rownames(farrisTxGroupMedians)[corFilterRuleTxCB];
+DEtx7nonCB7 <- setdiff(DEtx7, CBtx7); # non-pyramidal
+CBtx7nonDE7 <- setdiff(CBtx7, DEtx7); # "non-DE genes"
+DEtx7andCB7 <- intersect(DEtx7, CBtx7);   # "DE genes"
+
+## Plot based upon TPM or counts
+splomTxL <- lapply(nameVector(c("CA1","CA2","CA3","DG")), function(k) {
+   corCols <- vigrep(k, colnames(farrisTxTPMGroupMediansCtr2));
+   #df1 <- as.data.frame(farrisTxTPMGroupMediansCtr2[corFilterRuleTx,corCols]);
+   df1 <- as.data.frame(farrisTxTPMGroupMediansCtr2[detectedTxTPMCB,corCols]);
+   CBhit <- (abs(df1[,1]) > cutCB) * sign(df1[,1]);
+   DEhit <- (abs(df1[,2]) > cutCB) * sign(df1[,2]);
+   CBhitN <- paste0(k, "_", "CBhit");
+   DEhitN <- paste0(k, "_", "DEhit");
+   df1[,CBhitN] <- CBhit;
+   df1[,DEhitN] <- DEhit;
+   df1[,"GeneName"] <- rownames(df1);
+   df1;
+});
+## Remove entries with (0,0) no change in any condition
+splomTxLsub <- lapply(splomTxL, function(iDF){
+   subset(iDF, !iDF[,3] %in% 0 | !iDF[,4] %in% 0)
+});
+## Create a data.frame for ggplot
+splomTxDF2 <- rbindList(lapply(splomTxLsub, function(iDF){
+   iDF[,"CellType"] <- gsub("_.+", "", colnames(iDF)[1]);
+   colnames(iDF) <- c("CB","DE","CBhit","DEhit","transcript_id","CellType");
+   iDF;
+}));
+splomTxDF2[,"Gene"] <- tx2geneDF[match(splomTxDF2$transcript_id, tx2geneDF$transcript_id),"gene_name"];
+splomTxDF2[,"CBDEhit"] <- paste0(splomTxDF2$CBhit,
+   ":",
+   splomTxDF2$DEhit);
+## Add rowMaxs for CB and DE to farrisSplomDF2
+splomTxDF2[,"CBmaxGroupMedian"] <- rowMaxs(farrisTxGroupMedians[splomTxDF2$transcript_id, iSamplesGrpCB]);
+splomTxDF2[,"DEmaxGroupMedian"] <- rowMaxs(farrisTxGroupMedians[splomTxDF2$transcript_id, iSamplesGrpDE]);
+splomTxDF2[,"CBdet7"] <- (splomTxDF2[,"CBmaxGroupMedian"] > corrCutoff)+0;
+splomTxDF2[,"DEdet7"] <- (splomTxDF2[,"DEmaxGroupMedian"] > corrCutoff)+0;
+
+## Add TPM detected columns
+splomTxDF2[,"CBmaxGroupMedianTPM"] <- rowMaxs(farrisTxTPMGroupMedians[splomTxDF2$transcript_id, iSamplesGrpCB]);
+splomTxDF2[,"DEmaxGroupMedianTPM"] <- rowMaxs(farrisTxTPMGroupMedians[splomTxDF2$transcript_id, iSamplesGrpDE]);
+splomTxDF2[,"CBdetTPM"] <- (splomTxDF2$transcript_id %in% detectedTxTPMCB)+0;
+splomTxDF2[,"DEdetTPM"] <- (splomTxDF2$transcript_id %in% detectedTxTPMDE)+0;
+
+
+## Put it all together into tx lists
+txListsAll <- list(anyGenes1=anyTx1,
+   DEandCB=DEtx7andCB7, # detected
+   CBonly=CBtx7nonDE7,  # detected only CB, not detected DE
+   `non-pyramidal`=DEtx7nonCB7,
+   `CB1andDE1`=unique(subset(splomTxDF2,
+      CBDEhit %in% "1:1" &
+      CBdet7 %in% c(1) & #DEdetTPM %in% c(0) &
+      DEdet7 %in% c(1))$transcript_id)
+   );
+
+############################################
+detectedTxTPMany <- detectedTxTPManyL$detectedTx;
+detectedTxTPMCB <- detectedTxCBTPML$detectedTx;
+detectedTxTPMDE <- detectedTxDETPML$detectedTx;
+txListsAllTPM <- list(anyGenes1=detectedTxTPMany,
+   DEandCB=intersect(detectedTxTPMCB, detectedTxTPMDE),
+   CBonly=setdiff(detectedTxTPMCB, detectedTxTPMDE),
+   `non-pyramidal`=setdiff(detectedTxTPMDE, detectedTxTPMCB),
+   `CB1andDE1`=unique(subset(splomTxDF2,
+      CBDEhit %in% "1:1" &
+      CBdetTPM %in% c(1) &
+      DEdetTPM %in% c(1))$transcript_id)
+   );
+
 ```
 
 
@@ -721,6 +851,11 @@ if (!file.exists(localDb)) {
 ```
 
 ```{r, three_utr_length, dependson=c("gencode_vM12_gtf","tx2geneDF")}
+## Check for valid vM12txdb since it is not cached properly by knitr
+if (!DBI::dbIsValid(dbconn(vM12txdb))) {
+   vM12txdb <- AnnotationDbi::loadDb(file=localDb);
+}
+## Grab three prime UTR into a GRangesList
 gencode3utr <- GenomicFeatures::threeUTRsByTranscript(vM12txdb,
    use.names=TRUE);
 values(gencode3utr@unlistData)[,"transcript_id"] <- rep(names(gencode3utr), lengths(gencode3utr));
@@ -730,48 +865,135 @@ values(gencode3utr@unlistData)[,"gene_type"] <- tx2geneDF[values(gencode3utr@unl
 values(gencode3utr@unlistData)[,"transcript_type"] <- tx2geneDF[values(gencode3utr@unlistData)[,"transcript_id"],"transcript_type"];
 names(gencode3utr@unlistData) <- pasteByRow(values(gencode3utr@unlistData)[,c("transcript_id","exon_rank")]);
 
+## Summarize widths of three-prime-utr exons by transcript
+threePrimeTx <- sum(width(gencode3utr));
+GencodeVM12mm10threeUtrLength <- sum(width(gencode3utr));
+
+## non-mito detectedTx
+detectedTxMito <- subset(tx2geneDF[match(detectedTx, tx2geneDF$transcript_id),],
+   grepl("^mt-", gene_name))$transcript_id;
+detectedTxNonMito <- setdiff(detectedTx, detectedTxMito);
+
 ```
 
 We plotted 3'UTR lengths as violin plots using only detected transcripts
 based upon TPM criteria described elsewhere.
 
+```{r, utr_length, fig.width=12, fig.height=10, dependson=c("three_utr_length")}
+## Subset the txListsAll by those with three prime utr data
+txLists3utr <- lapply(txListsAll, function(i){
+   intersect(i, names(GencodeVM12mm10threeUtrLength));
+});
+
+## Create data in format for violin plots using ggplot2
+violin3utrDF <- data.frame(check.names=FALSE,
+   stringsAsFactors=FALSE,
+   Tx=unlist(txLists3utr),
+   gene_name=tx2geneDF[match(unlist(txLists3utr), tx2geneDF$transcript_id),"gene_name"],
+   Subset=factor(rep(names(txLists3utr), lengths(txLists3utr)),
+      levels=names(txLists3utr)),
+   detectedTx=ifelse(unlist(txLists3utr) %in% detectedTxNonMito,
+      "Detected Tx", "Undetected Tx"),
+   threeUtrLength=GencodeVM12mm10threeUtrLength[unlist(txLists3utr)],
+   txCai=GencodeVM12mm10cai[unlist(txLists3utr)],
+   cdsLength=rmNA(naValue=0, GencodeVM12mm10cdsLength[unlist(txLists3utr)])
+   );
+## Now make a version that includes Tx counts in the labels
+violin3utrDF$SubsetCount <- splicejam::factor2label(violin3utrDF$Subset,
+   itemName="txs");
+## Note some tricky math, we take the median log length, then exponentiate
+violin3utrDF$SubsetLabel <- splicejam::factor2label(violin3utrDF$Subset,
+   types="count",
+   aggFun=function(x,...){2^median(log2(x[x>10]),na.rm=TRUE)},
+   valuesL=violin3utrDF[,"threeUtrLength",drop=FALSE],
+   itemName="txs");
+violin3utrDF$log3utr <- log10(1+violin3utrDF$threeUtrLength);
+
+## Subset for specific neuronal groups
+violin3utrDFsub <- subset(violin3utrDF, Subset %in% names(txListsAll)[c(3,4,5)]);
+
+## 3 prime UTR length violin plots using ggplot2
+gg3utr <- ggplot(data=subset(violin3utrDF, detectedTx %in% "Detected Tx"),
+   aes(x=Subset, y=threeUtrLength)) +
+   scale_y_continuous(trans="log10",
+      breaks=c(10,20,50,100,200,500,700,1000,1500,2000,5000,10000,20000,50000),
+      limits=10^c(1,4.25)) +
+   #annotation_logticks(sides="lr") +
+   facet_wrap(~detectedTx) +
+   geom_violin(aes(fill=SubsetCount), scale="area",
+      alpha=0.8, trim=TRUE, draw_quantiles=c(0.5)) +
+   theme_jam(grid.minor.size=0) + scale_color_jam() + scale_fill_jam();
+gg3utr;
+
+```
+
 
 ### Translational Efficiency using CAI
 
-```{r, codon_usage}
-## The Mouse codon usage file is available in the splicejam package
-mouseCodonTxtFile <- system.file("extdata", "Mouse_codon_usage.txt", package="farrisdata")
-#mouseCodonTxtFile <- "~/Projects/R-scripts/Mouse_codon_usage.txt";
-codonDF <- codonUsage2df(mouseCodonTxtFile);
+```{r, codon_usage, fig.width=12, fig.height=10, dependson=c("three_utr_length")}
+## codon adaptability index (cai) values are pre-computed and
+## available from the farrisdata package
+data(GencodeVM12mm10cai);
 
-## Next load table of CAI data, from the seqinr package
-data(caitab, package="seqinr");
-
-## Use data in the same order as caitab
-mouseCodonDF <- codonDF[match(rownames(caitab), rownames(codonDF)),,drop=FALSE];
-
-## Translate codon to amino acid
-transV <- sapply(rownames(mouseCodonDF), function(i){
-   seqinr::translate(unlist(strsplit(i, "")));
+## Subset transcript lists for entries having CAI data,
+## which mostly filters for CDS-encoding Txs
+txListsCai <- lapply(txListsAll, function(i){
+   intersect(i, names(GencodeVM12mm10cai))
 });
-## Split codons into a list by amino acid
-transL <- split(names(transV), transV);
-mouseCodonDF2 <- rbindList(lapply(names(transL), function(j){
-   i <- transL[[j]];
-   iDF <- mouseCodonDF[i,,drop=FALSE];
-   iDF[,2] <- iDF[,2] / max(iDF[,2]);
-   iDF[,"aa"] <- j;
-   iDF;
-}));
-## Add number of codons per aa
-mouseCodonDF2[,"degen"] <- lengths(transL)[mouseCodonDF2$aa];
+txListsCaiTPM <- lapply(txListsAllTPM, function(i){
+   intersect(i, names(GencodeVM12mm10cai))
+});
+#txListsCai <- txListsCaiTPM;
 
-## Change the frequency for stop codons to zero,
-## since we are positing the frequency is proportional
-## to readthrough efficiency.
-mouseCodonDF2[mouseCodonDF2$aa %in% "*","frequency"] <- 0;
 
-## Work in progress...
+data(GencodeVM12mm10cdsLength);
+data(GencodeVM12mm10caiCtLow);
+data(GencodeVM12mm10caiCtBad);
+
+## Create data in format for violin plots using ggplot2
+violinCaiDF <- data.frame(check.names=FALSE,
+   stringsAsFactors=FALSE,
+   Tx=unlist(txListsCai),
+   gene_name=tx2geneDF[match(unlist(txListsCai), tx2geneDF$transcript_id),"gene_name"],
+   Subset=factor(rep(names(txListsCai), lengths(txListsCai)),
+      levels=names(txListsCai)),
+   detectedTx=ifelse(unlist(txListsCai) %in% detectedTxNonMito,
+      "Detected Tx", "Undetected Tx"),
+   txCai=GencodeVM12mm10cai[unlist(txListsCai)],
+   cdsLength=GencodeVM12mm10cdsLength[unlist(txListsCai)],
+   ctLowCai=GencodeVM12mm10caiCtLow[unlist(txListsCai)],
+   pctLowCai=(GencodeVM12mm10caiCtLow[unlist(txListsCai)] /
+         GencodeVM12mm10cdsLength[unlist(txListsCai)] *100),
+   ctBadCai=GencodeVM12mm10caiCtBad[unlist(txListsCai)],
+   pctBadCai=(GencodeVM12mm10caiCtBad[unlist(txListsCai)] /
+         GencodeVM12mm10cdsLength[unlist(txListsCai)] *100),
+   txCaiQ1=GencodeVM12mm10caiQ1mean[unlist(txListsCai)]
+   );
+
+## Now make a version that includes Tx counts in the labels
+violinCaiDF$SubsetCount <- splicejam::factor2label(violinCaiDF$Subset,
+   itemName="txs");
+violinCaiDF$SubsetLabel <- splicejam::factor2label(violinCaiDF$Subset,
+   types="count",
+   aggFun=median,
+   valuesL=violinCaiDF[,"pctLowCai",drop=FALSE],
+   itemName="txs");
+
+## Subset for specific neuronal groups
+violinCaiDFsub <- subset(violinCaiDF, Subset %in% names(txListsAll)[c(3,4,5)]);
+
+## CAI violin plots using ggplot2
+ggPctLowCai <- ggplot(data=subset(violinCaiDFsub, detectedTx %in% "Detected Tx"),
+   aes(x=Subset, y=pctLowCai)) +
+   #aes(x=Subset, y=txCai)) +
+   facet_wrap(~detectedTx) +
+   geom_violin(aes(fill=SubsetLabel), scale="area",
+   #geom_violin(aes(fill=SubsetCount), scale="area",
+      alpha=0.8, trim=TRUE, draw_quantiles=c(0.5)) +
+   ylim(c(0, 20)) +
+   theme_jam(grid.minor.size=0) + scale_color_jam() + scale_fill_jam();
+ggPctLowCai;
+
 ```
 
 
