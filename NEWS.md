@@ -1,3 +1,11 @@
+# jampack version 0.0.4.9000
+
+* Updated README.md with more specific instructions on installing
+jampack and farrisdata, in order to reproduce the Rmarkdown HTML
+output.
+* Fixed typo in the description of Gene data matrix, which represents
+Salmon pseudocounts and not TPM values.
+
 # jampack version 0.0.3.9000
 
 ## changes to package dependencies
