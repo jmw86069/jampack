@@ -570,7 +570,8 @@ geneListsAll <- list(anyGenes1=anyGenes1,
 geneListsDF <- data.frame(GeneList=names(geneListsAll),
    GeneCount=format(lengths(geneListsAll), big.mark=",", trim=TRUE));
 rownames(geneListsDF) <- NULL;
-colorSubGeneLists <- group2colors(names(geneListsAll));
+colorSubGeneLists <- nameVector(rainbowJam(length(geneListsAll)),
+   names(geneListsAll));
 geneListsDF2 <- kable_coloring(geneListsDF,
       colorSub=colorSubGeneLists,
       row_color_by="GeneList",
@@ -586,10 +587,12 @@ Heatmap per-gene.
 
 ### Differential gene expression using limma
 
+In preparation.
+
 
 ## Transcript analysis summary
 
-### Definition of "detected transcripts"
+### Definition of detected transcripts
 
 We refer to the function `defineDetectedTx()` in the `jampack` R package.
 The function takes normalized counts, normalized TPM values, sample
@@ -676,13 +679,16 @@ if (!file.exists(tx2geneFile)) {
 
 ```
 
-#### Transcript lists per cell type
+### Neuronal Transcript Lists
 
-The code below creates transcript lists equivalent to the neuronal
-gene lists above. The main distinction is the filtering is applied
-to transcript-level data, as opposed to gene-level summary data
-above. While a gene may be present in one category, perhaps only a
+The code below creates transcript lists equivalent to the
+Neuronal Gene Lists above. The main distinction is that
+the filtering rules are applied to transcript-level data,
+as opposed to gene-level summary data above.
+While a gene may be present in one category, perhaps only a
 subset of its transcript isoforms may be present in that category.
+Similarly, individual isoforms from the same gene may be present in
+multiple distinct neuronal categories.
 
 The transcript-level subsets are used to produce the 3-prime UTR
 and CAI plots in subsequent figures.
@@ -697,6 +703,9 @@ farrisTxTPMGroupMedians <- rowGroupMeans(assays(farrisTxSE)[["tpm"]],
    useMedian=TRUE);
 
 ## Define cutoffs using CB and DE samples
+## "Any" uses permissive cutoffs:
+## pseudocounts >= 5, TPM >= 1
+## no requirement for isoforms to be a certain percent the max per gene
 detectedTxTPManyL <- defineDetectedTx(
    iMatrixTx=assays(farrisTxSE[,iSamplesCB])[["counts"]],
    iMatrixTxTPM=assays(farrisTxSE[,iSamplesCB])[["tpm"]],
@@ -710,6 +719,8 @@ detectedTxTPManyL <- defineDetectedTx(
    useMedian=FALSE,
    verbose=FALSE);
 ## Define cutoffs using cell body (CB) samples
+## Requires pseudocounts >= 32, TPM >= 2
+## and isoforms must be >= 10 percent the max per gene
 detectedTxCBTPML <- defineDetectedTx(
    iMatrixTx=assays(farrisTxSE[,iSamplesCB])[["counts"]],
    iMatrixTxTPM=assays(farrisTxSE[,iSamplesCB])[["tpm"]],
@@ -724,6 +735,8 @@ detectedTxCBTPML <- defineDetectedTx(
    verbose=FALSE);
 detectedTxTPMCB <- detectedTxCBTPML$detectedTx;
 ## Define cutoffs using cell body (DE) samples
+## Requires pseudocounts >= 32, TPM >= 2
+## and isoforms must be >= 10 percent the max per gene
 detectedTxDETPML <- defineDetectedTx(
    iMatrixTx=assays(farrisTxSE[,iSamplesDE])[["counts"]],
    iMatrixTxTPM=assays(farrisTxSE[,iSamplesDE])[["tpm"]],
@@ -812,7 +825,8 @@ txListsAll <- list(anyGenes1=anyTx1,
       DEdet7 %in% c(1))$transcript_id)
    );
 
-############################################
+#########################################################
+## Same logic as above, using TPM instead of pseudocounts
 detectedTxTPMany <- detectedTxTPManyL$detectedTx;
 detectedTxTPMCB <- detectedTxCBTPML$detectedTx;
 detectedTxTPMDE <- detectedTxDETPML$detectedTx;
@@ -829,7 +843,87 @@ txListsAllTPM <- list(anyGenes1=detectedTxTPMany,
 ```
 
 
-### Analysis of 3'UTR length
+### Properties of hippocampus dendritic RNAs, supplemental figure 7
+
+
+#### supp7A Heatmap of high-confidence dendritic, cell body retained, and non-pyramidal RNA lists
+
+
+```{r, heatmap_genelists345}
+gl4 <- unlist(geneListsAll[c(3,4,5)]);
+## Make a vector of gene list names, named by gene
+gl4names <- nameVector(rep(names(geneListsAll[3:5]), lengths(geneListsAll[3:5])),
+   unlist(gl4));
+#length(gl4);    # 3474 total
+iSamplesGrpO <- mixedSort(iSamplesGrp);
+iM4 <- farrisGeneGroupMedians[gl4,iSamplesGrpO];
+
+## Create color bar for the top of the heatmap
+colHA3 <- HeatmapAnnotation(colDataColorsGrpL[iSamplesGrpO,2:1],
+   show_annotation_name=TRUE,
+   col=pheat_colors);
+rowHA3 <- HeatmapAnnotation(which="row",
+   df=data.frame(List=gl4names[rownames(iM4)]),
+   col=list(List=colorSubGeneLists[names(geneListsAll)[3:5]]),
+   width=unit(1, "cm") )
+rowHM3 <- Heatmap(data.frame(List=gl4names[rownames(iM4)]),
+   name="List",
+   width=unit(1, "cm"),
+   show_row_names=FALSE,
+   col=colorSubGeneLists[names(geneListsAll)[3:5]],
+   cell_fun=function(j, i, x, y, width, height, fill) {
+       grid.text(sprintf("%.1f", mat[i, j]), x, y, gp = gpar(fontsize = 10))
+   })
+
+## Define color ramp
+pheat_expr_breaks <- warpAroundZero(seq(from=-2, to=18, length.out=51),
+   baseline=5,
+   lens=4);
+range(pheat_expr_breaks);
+cBRexpr <- circlize::colorRamp2(breaks=pheat_expr_breaks,
+   colors=colorRampPalette(tail(getColorRamp("RdBu_r", n=15), 13))(51));
+
+## Create the heatmap
+glHM <- Heatmap(iM4[,iSamplesGrpO],
+   name="Gene List Heatmap",
+   cluster_columns=FALSE,
+   show_row_names=FALSE,
+   clustering_method_rows="ward.D",
+   column_dend_height=unit(20, "mm"),
+   row_dend_width=unit(20, "mm"),
+   top_annotation=colHA3,
+   split=gl4names[rownames(iM4)],
+   use_raster=TRUE,
+   raster_device="CairoPNG",
+   col=cBRexpr);
+#draw(rowHA3 + glHM + rowHM3, row_dend_side="left");
+draw(rowHA3 + glHM, row_dend_side="left");
+if (1 == 2) {
+   hm4grp <- heatmap.2(iM4,
+      col=colorRampPalette(tail(getColorRamp("RdBu_r"), 13))(31),
+      #colLensFactor=2,
+      symkey=FALSE,
+      symbreaks=FALSE,
+      trace="none",
+      #distMethod="correlation",
+      #colorSub=nameVector(rainbowCat(5), names(geneListsAll)),
+      #distMethod="maximum", hclustMethod="complete",
+      #rowGroups=nameVector(list2df(geneListsAll[c(3,4,5)])[,1:2])[gl4use],
+      #RowvCutreeK=4,
+      Colv=FALSE,
+      labRow=NA,
+      useRaster=TRUE);
+}
+
+```
+
+
+#### supp7B Percent breakdown of transcript type by transcript list
+
+In preparation.
+
+
+#### supp7C Violin plot of annotated 3'UTR lengths in each RNA list
 
 We imported Gencode vM12 comprehensive GTF into R using
 R Bioconductor GenomicFeatures package, with which we derived
@@ -837,7 +931,7 @@ R Bioconductor GenomicFeatures package, with which we derived
 `GenomicFeatures::threeUTRsByTranscript()`, respectively.
 
 This step re-uses the Gencode GTF file downloaded above, then
-converts it to a "Txdb" object, which is a SQLite relational database
+converts it to a `"Txdb"` object, which is a SQLite relational database
 format. This database is saved into a file so it can be recalled
 without re-creating the file again.
 
@@ -877,6 +971,7 @@ detectedTxNonMito <- setdiff(detectedTx, detectedTxMito);
 
 ```
 
+
 We plotted 3'UTR lengths as violin plots using only detected transcripts
 based upon TPM criteria described elsewhere.
 
@@ -885,6 +980,12 @@ based upon TPM criteria described elsewhere.
 txLists3utr <- lapply(txListsAll, function(i){
    intersect(i, names(GencodeVM12mm10threeUtrLength));
 });
+
+## Pull pre-computed data from the farrisdata package
+data(GencodeVM12mm10cai);
+data(GencodeVM12mm10cdsLength);
+data(GencodeVM12mm10caiCtLow);
+data(GencodeVM12mm10caiCtBad);
 
 ## Create data in format for violin plots using ggplot2
 violin3utrDF <- data.frame(check.names=FALSE,
@@ -905,6 +1006,10 @@ violin3utrDF$SubsetCount <- splicejam::factor2label(
    itemName="txs");
 levels(violin3utrDF$SubsetCount) <- gsub("_([^(]+) Tx (.+) (txs)", " \\2 \\1 \\3",
    levels(violin3utrDF$SubsetCount))
+colorSubGeneLists2 <- unlist(lapply(names(colorSubGeneLists), function(i){
+   j <- vigrep(i, levels(violin3utrDF$SubsetCount));
+   nameVector(rep(colorSubGeneLists[i], length(j)), j);
+}));
 ## Note some tricky math, we take the median log length, then exponentiate
 violin3utrDF$SubsetLabel <- splicejam::factor2label(
    pasteByRowOrdered(violin3utrDF[,c("Subset","detectedTx")]),
@@ -931,12 +1036,14 @@ gg3utr <- ggplot(data=subset(violin3utrDF, detectedTx %in% "Detected Tx"),
       alpha=0.8,
       trim=TRUE,
       draw_quantiles=c(0.5)) +
-   theme_jam(grid.minor.size=0) + scale_color_jam() + scale_fill_jam();
+   theme_jam(grid.minor.size=0) +
+   scale_color_manual(values=colorSubGeneLists2) +
+   scale_fill_manual(values=colorSubGeneLists2);
 gg3utr;
 
 ```
 
-#### Statistical tests comparing three prime UTR lengths
+##### Statistical tests comparing three prime UTR lengths
 
 ```{r, three_utr_stats}
 ## Wilcoxon t-test comparing the percent CAI
@@ -985,12 +1092,21 @@ TtestStatsUtrDF2;
 ```
 
 
-### Translational Efficiency using CAI
+#### supp7D Proximal versus distal 3'UTR detected in each RNA list per compartment
+
+In preparation.
+
+
+#### supp7E Violin plot of the average percentage of codons with CAI <= 0.5 per RNA list
+
+Codon CAI values are loaded via the `farrisdata` R package, and can be
+calculated using methods described in the `jampack` R package suite.
+
 
 ```{r, codon_usage, fig.width=12, fig.height=10, dependson=c("three_utr_length")}
 ## codon adaptability index (cai) values are pre-computed and
 ## available from the farrisdata package
-data(GencodeVM12mm10cai);
+#data(GencodeVM12mm10cai);
 
 ## Subset transcript lists for entries having CAI data,
 ## which mostly filters for CDS-encoding Txs
@@ -1002,10 +1118,6 @@ txListsCaiTPM <- lapply(txListsAllTPM, function(i){
 });
 #txListsCai <- txListsCaiTPM;
 
-
-data(GencodeVM12mm10cdsLength);
-data(GencodeVM12mm10caiCtLow);
-data(GencodeVM12mm10caiCtBad);
 
 ## Create data in format for violin plots using ggplot2
 violinCaiDF <- data.frame(check.names=FALSE,
@@ -1035,6 +1147,12 @@ violinCaiDF$SubsetLabel <- splicejam::factor2label(violinCaiDF$Subset,
    aggFun=median,
    valuesL=violinCaiDF[,"pctLowCai",drop=FALSE],
    itemName="txs");
+colorSubGeneLists3 <- unlist(lapply(names(colorSubGeneLists), function(i){
+   j <- vigrep(i, c(
+      levels(violinCaiDF$SubsetLabel),
+      levels(violinCaiDF$SubsetCount)));
+   nameVector(rep(colorSubGeneLists[i], length(j)), j);
+}));
 
 ## Subset for specific neuronal groups
 violinCaiDFsub <- subset(violinCaiDF, Subset %in% names(txListsAll)[c(3,4,5)]);
@@ -1048,12 +1166,14 @@ ggPctLowCai <- ggplot(data=subset(violinCaiDFsub, detectedTx %in% "Detected Tx")
    #geom_violin(aes(fill=SubsetCount), scale="area",
       alpha=0.8, trim=TRUE, draw_quantiles=c(0.5)) +
    ylim(c(0, 20)) +
-   theme_jam(grid.minor.size=0) + scale_color_jam() + scale_fill_jam();
+   theme_jam(grid.minor.size=0) +
+   scale_color_manual(values=colorSubGeneLists3) +
+   scale_fill_manual(values=colorSubGeneLists3);
 ggPctLowCai;
 
 ```
 
-#### Statistical tests comparing gene lists
+##### Statistical tests comparing gene lists
 
 ```{r, cai_stats}
 ## Wilcoxon t-test comparing the percent CAI
@@ -1103,8 +1223,9 @@ TtestStatsCaiDF2;
 ```
 
 
+#### supp7F Heatmap of hypergeometric enrichment P-values of cell type by RNA list
 
-### Proximal-Distal 3'UTR Analysis
+In preparation.
 
 
 ### Differential transcript isoform analysis limma
@@ -1115,7 +1236,7 @@ TtestStatsCaiDF2;
 
 
 
-## Gene Set Enrichment, MultiEnrichMap
+## Gene Set Enrichment
 
 ### Selection of gene hits
 

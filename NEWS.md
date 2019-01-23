@@ -1,3 +1,11 @@
+# jampack version 0.0.5.9000
+
+* Added specific sections for supplemental figure 7, for
+each panel.
+* Added heatmap of expression data using ComplexHeatmap
+instead of heatmap.3(). Will assess adding text labels
+onto the color bars beside and at the top of the plot.
+
 # jampack version 0.0.4.9000
 
 * Updated README.md with more specific instructions on installing
