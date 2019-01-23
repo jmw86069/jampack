@@ -1,19 +1,23 @@
 Package: jampack
 Title: Jam Pack of Packages
-Version: 0.0.5.9000
+Version: 0.0.6.900
 Authors@R: person(given="James M.", family="Ward",
     email="jmw86069@gmail.com", role=c("aut", "cre"))
 Description: This package is mainly a central package to install
     dependencies from other Jam packages, in support of RNA-seq and
     other genomics style analysis methods.
 Depends: R (>= 3.0.0),
-    jamba,
-    colorjam,
-    jamma,
-    splicejam
+    jamba (>= 0.0.25.900),
+    colorjam (>= 0.0.6.900),
+    jamma (>= 0.0.5.900),
+    splicejam (>= 0.0.7.900)
 Imports: ggrepel
-Suggests: farrisdata,
-    seqinr
+biocViews:
+Suggests: farrisdata (>= 0.0.3.900),
+    seqinr,
+    png,
+    Cairo,
+    ComplexHeatmap
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
@@ -26,4 +30,4 @@ URL: http://github.com/jmw86069/jampack
 BugReports: http://github.com/jmw86069/jampack/issues
 VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.1

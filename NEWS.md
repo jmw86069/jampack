@@ -1,3 +1,20 @@
+# jampack version 0.0.6.9000
+
+* Added Rmarkdown cache.extra to the "docs/farrisSeq.Rmd" file,
+dependent upon package versions of  "farrisdata" (in the event the
+source data changes), and "splicejam", "jamba" (packages which
+provide some key data manipulation functions.)
+* Added transcript type definitions per transcript list.
+* Added Suggests for "png" and "Cairo" packages, which should help
+with ComplexHeatmap.
+* Added `colorSub` section to the visible Rmarkdown body, previously
+it was in the header but was not visible, therefore making it difficult
+to reproduce the workflow by copy-pasting from the rendered HTML
+code blocks.
+* Added specific R package versions to the DESCRIPTION, to ensure
+jampack will require important versioned changes in Jam packages
+as needed.
+
 # jampack version 0.0.5.9000
 
 * Added specific sections for supplemental figure 7, for

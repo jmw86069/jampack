@@ -40,7 +40,17 @@ suppressPackageStartupMessages(library(jamma));
 suppressPackageStartupMessages(library(colorjam));
 suppressPackageStartupMessages(library(splicejam));
 suppressPackageStartupMessages(library(farrisdata));
-knitr::opts_chunk$set(cache=TRUE, autodep=TRUE);
+
+suppressPackageStartupMessages(library(png));
+suppressPackageStartupMessages(library(Cairo));
+
+knitr::opts_chunk$set(cache=TRUE,
+   autodep=TRUE,
+   cache.extra=list(
+      packageVersion("farrisdata"),
+      packageVersion("jamba"),
+      packageVersion("splicejam"))
+   );
 
 options("kable_styling_position"="left",
   "kable_styling_full_width"=FALSE,
@@ -49,6 +59,29 @@ options("kable_styling_position"="left",
     "condensed",
     "responsive")
 );
+```
+
+This document describes and demonstrates analysis methods used to analyze
+mouse hippocampal subregion-specific transcriptome RNA-seq data
+(Farris et al manuscript in preparation.)
+
+Raw sequence read data is provided through GEO GSE116343, with RNA-seq
+data available at GEO GSE116342. Data used for analysis in R is provided
+through an R package `farrisdata`, installed in R with
+`devtools::install_github("jmw86069/farrisdata")`.
+
+## Description of Input Data
+
+The input data for this analysis workflow
+is derived from Salmon quantitation files, which were already imported and
+assembled into relevant data matrices.
+
+### Reference color substitutions
+
+For consistency, a common set of colors are defined to represent
+the different sample groups.
+
+```{r, color_sub, fig.height=6, fig.width=8}
 colorSub <- c(
    CA1="orange",
    CA2="orangered3",
@@ -67,23 +100,9 @@ colorSub <- c(
    `TRUE`="skyblue",
    `FALSE`="indianred3");
 colorSub <- rgb2col(col2rgb(colorSub, alpha=TRUE));
+showColors(split(colorSub,
+   rep(c("Factors","Groups","Factors"), c(6,8,2))));
 ```
-
-This document describes and demonstrates analysis methods used to analyze
-mouse hippocampal subregion-specific transcriptome RNA-seq data
-(Farris et al manuscript in preparation.)
-
-Raw sequence read data is provided through GEO GSE116343, with RNA-seq
-data available at GEO GSE116342. Data used for analysis in R is provided
-through an R package `farrisdata`, installed in R with
-`devtools::install_github("jmw86069/farrisdata")`.
-
-## Description of Input Data
-
-The input data for this analysis workflow
-is derived from Salmon quantitation files, which were already imported and
-assembled into relevant data matrices.
-
 
 ### Gene expression data
 
@@ -127,7 +146,7 @@ as.data.frame(head(rowData(farrisGeneSE), 10)) %>%
 
 * **colData** annotated data.frame with sample rows, describing the
 mouse hippocampal **Region**, **CellType**, **Sample**, and **groupName**.
-```{r, sample_table, echo=FALSE, dependson="load_gene_data"}
+```{r, sample_table, echo=FALSE, dependson=c("load_gene_data","color_sub")}
 df2 <- kable_coloring(colData(farrisGeneSE),
       colorSub=colorSub,
       row_color_by="groupName",
@@ -171,7 +190,7 @@ sample columns, with log2 median-normalized counts. Each row is named
 using a unique gene symbol derived from the Gencode GTF file.
 * **rowData** data.frame with gene rows, using the gene symbol derived from
 the Gencode GTF file.
-```{r, tx_table, dependson="load_tx_data"}
+```{r, tx_table, dependson=c("load_tx_data","color_sub")}
 tx_df <- subset(as.data.frame(rowData(farrisTxSE)),
    geneSymbol %in% c("Gria1","Shank2","Ntrk2")) %>%
    dplyr::select(geneSymbol,
@@ -277,7 +296,7 @@ salmonBga1 <- bga(dataset=bgaExprsUse,
    type="coa");
 ```
 
-```{r bga_plotly, dependson="bga_plot"}
+```{r bga_plotly, dependson=c("bga_plot","color_sub")}
 salmonBga1ly <- bgaPlotly3d(salmonBga1,
    axes=c(1,2,3),
    colorSub=colorSub,
@@ -358,7 +377,7 @@ argument `centerGroups`.
 Next we prepare a data.frame with color coding to show the
 CellType and Compartment values.
 
-```{r sample_corr_cb_prep, dependson=c("load_gene_data","genes_detected_CA1")}
+```{r sample_corr_cb_prep, dependson=c("load_gene_data","genes_detected_CA1","color_sub")}
 ## farrisGeneGroupMedians
 ## Pull out only cell body samples
 iSamples <- colnames(farrisGeneSE);
@@ -391,7 +410,7 @@ colDataColorsRep <- df2colorSub(colDataColorsRepL, colorSub=colorSub);
 
 Heatmap using ComplexHeatmap:
 
-```{r sample_corr_cb_CH, fig.height=8, fig.width=10, dependson="sample_corr_cb_prep"}
+```{r sample_corr_cb_CH, fig.height=8, fig.width=10, dependson=c("sample_corr_cb_prep","color_sub")}
 pheat_colors <- list(Compartment=colorSub[c("CB","DE")],
    CellType=colorSub[c("CA1","CA2","CA3","DG")]);
 pheat_breaks <- warpAroundZero(seq(from=-1, to=1, length.out=51), lens=1);
@@ -425,7 +444,7 @@ draw(rowA + corHM, row_dend_side="left");
 Correlation showing CA2_CB correlates highest with CA2_DE,
 etc. for each CellType.
 
-```{r corr_by_compartment_prep, dependson=c("load_gene_data","genes_detected_CA1")}
+```{r corr_by_compartment_prep, dependson=c("load_gene_data","genes_detected_CA1","color_sub")}
 ## farrisGeneGroupMedians[genesAboveCutoff,]
 iMatrix7grp <- farrisGeneGroupMedians[genesAboveCutoffCB,];
 centerGroupsGrp <- gsub("^.*(DE|CB).*$",
@@ -609,7 +628,6 @@ a TPM value of 2.
 
 ```{r, detectedTxTPM}
 #refreshFunctions("farrisSalmonWWS");
-#detectedTxTPML <- try(defineDetectedTx(
 detectedTxTPML <- defineDetectedTx(
    iMatrixTx=assays(farrisTxSE)[["counts"]],
    iMatrixTxTPM=assays(farrisTxSE)[["tpm"]],
@@ -679,6 +697,66 @@ if (!file.exists(tx2geneFile)) {
 
 ```
 
+Note the logic to define various transcript types is applied below,
+after the definition of Neuronal Transcript Lists.
+
+#### Preparation of 3'UTR data from Gencode
+
+We imported Gencode vM12 comprehensive GTF into R using
+R Bioconductor GenomicFeatures package, with which we derived
+3'UTR regions, using `GenomicFeatures::makeTxDbFromGFF()` and
+`GenomicFeatures::threeUTRsByTranscript()`, respectively.
+
+This step re-uses the Gencode GTF file downloaded above, then
+converts it to a `"Txdb"` object, which is a SQLite relational database
+format. This database is saved into a file so it can be recalled
+without re-creating the file again.
+
+```{r, gencode_vM12_gtf}
+localDb <- file.path(".", "vM12gtf.txdb");
+if (!file.exists(localDb)) {
+   vM12txdb <- GenomicFeatures::makeTxDbFromGFF(vM12gtfBase);
+   AnnotationDbi::saveDb(x=vM12txdb, file=localDb);
+} else {
+   vM12txdb <- AnnotationDbi::loadDb(file=localDb);
+}
+```
+
+```{r, three_utr_length, dependson=c("gencode_vM12_gtf","tx2geneDF")}
+## Check for valid vM12txdb since it is not cached properly by knitr
+if (!DBI::dbIsValid(dbconn(vM12txdb))) {
+   vM12txdb <- AnnotationDbi::loadDb(file=localDb);
+}
+## Grab three prime UTR into a GRangesList
+gencode3utr <- GenomicFeatures::threeUTRsByTranscript(vM12txdb,
+   use.names=TRUE);
+values(gencode3utr@unlistData)[,"transcript_id"] <- rep(names(gencode3utr), lengths(gencode3utr));
+txMatch <- match(values(gencode3utr@unlistData)[,"transcript_id"], tx2geneDF$transcript_id);
+values(gencode3utr@unlistData)[,"gene_id"] <- tx2geneDF[txMatch,"gene_id"];
+values(gencode3utr@unlistData)[,"gene_name"] <- tx2geneDF[txMatch,"gene_name"];
+values(gencode3utr@unlistData)[,"gene_type"] <- tx2geneDF[txMatch,"gene_type"];
+values(gencode3utr@unlistData)[,"transcript_type"] <- tx2geneDF[txMatch,"transcript_type"];
+names(gencode3utr@unlistData) <- pasteByRow(values(gencode3utr@unlistData)[,c("transcript_id","exon_rank")]);
+
+## Add flags to tx2geneDF, whether a gene or tx has 3'UTR
+tx2geneDF[,"GeneHas3UTR"] <- tx2geneDF$gene_id %in% 
+   values(gencode3utr@unlistData)[,"gene_id"];
+tx2geneDF[,"TxHas3UTR"] <- tx2geneDF$transcript_id %in%
+   values(gencode3utr@unlistData)[,"transcript_id"];
+
+## Summarize widths of three-prime-utr exons by transcript
+threePrimeTx <- sum(width(gencode3utr));
+GencodeVM12mm10threeUtrLength <- sum(width(gencode3utr));
+
+## non-mito detectedTx
+detectedTxMito <- subset(tx2geneDF[match(detectedTx, tx2geneDF$transcript_id),],
+   grepl("^mt-", gene_name))$transcript_id;
+detectedTxNonMito <- setdiff(detectedTx, detectedTxMito);
+
+```
+
+
+
 ### Neuronal Transcript Lists
 
 The code below creates transcript lists equivalent to the
@@ -701,6 +779,13 @@ farrisTxGroupMedians <- rowGroupMeans(assays(farrisTxSE)[["counts"]],
 farrisTxTPMGroupMedians <- rowGroupMeans(assays(farrisTxSE)[["tpm"]],
    groups=colData(farrisTxSE)$groupName,
    useMedian=TRUE);
+
+## Define TPM data matrix
+## Note: we add +1 to normalized TPM values, which keeps the minimum
+## values above zero. Consequently, we reset values which were already
+## zero to zero, so they are not adjusted.
+iMatrixTxTPM <- assays(farrisTxSE)[["tpm"]] + 1;
+iMatrixTxTPM[assays(farrisTxSE)[["raw_tpm"]] == 0] <- 0
 
 ## Define cutoffs using CB and DE samples
 ## "Any" uses permissive cutoffs:
@@ -842,6 +927,75 @@ txListsAllTPM <- list(anyGenes1=detectedTxTPMany,
 
 ```
 
+#### Transcript types by transcript list
+
+
+```{r, tx_by_type}
+
+ncTx2geneDFdetTPM <- subset(tx2geneDF,
+   !gene_type %in% c("protein_coding","TEC","Mt_tRNA","Mt_rRNA") &
+   transcript_id %in% detectedTx);
+## nc detectedTx has 1548 rows, originally it had 2657 rows
+## Convert to list
+txListsAllTPMncDet <- lapply(txListsAllTPM, function(i){
+   intersect(i, ncTx2geneDFdetTPM$transcript_id);
+});
+## lengths(txListsAllTPMncDet)
+## 1436, 747, 381, 420, 94
+
+## % Tx in txListsAll that are protein_coding and have 3'UTRs
+cdsTx2geneDFdetTPM <- subset(tx2geneDF,
+   gene_type %in% c("protein_coding") &
+   transcript_id %in% detectedTx);
+txListsAllTPMcdsDet <- lapply(txListsAllTPM, function(i){
+   iDF <- subset(cdsTx2geneDFdetTPM, transcript_id %in% i);
+   iDF$transcript_id;
+});
+## lengths(txListsAllTPMcdsDet)
+## 24120, 17104, 3424, 5259, 1541
+
+txListsAllTPMcdsDetHas3utr <- lapply(txListsAllTPM, function(i){
+   iDF <- subset(cdsTx2geneDFdetTPM, transcript_id %in% i);
+   iV <- table(iDF$TxHas3UTR);
+   c(format(iV, scientific=FALSE, big.mark=","),
+      pct=round(1000*nrow(subset(iDF, TxHas3UTR)) / nrow(iDF))/10);
+});
+txListsAllTPMcdsDetHas3utr;
+txListsAllTPMcdsDetHas3utrV <- unlist(lapply(txListsAllTPMcdsDetHas3utr, function(i){
+   as.numeric(gsub(",", "", i[["TRUE"]]));
+}));
+
+
+## Make a small table with txListsAll counts
+txListsAllDF <- data.frame(geneListsAll=lengths(geneListsAll),
+   txListsAllTPM=lengths(txListsAllTPM),
+   txListsAllTPMdet=lengths(txListsAllTPM),
+   non_coding=lengths(txListsAllTPMncDet),
+   pct_non_coding=lengths(txListsAllTPMncDet)/lengths(txListsAllTPM),
+   protein_coding=lengths(txListsAllTPMcdsDet),
+   pct_protein_coding=lengths(txListsAllTPMcdsDet)/lengths(txListsAllTPM),
+   protein_coding_with3utr=txListsAllTPMcdsDetHas3utrV,
+   pct_protein_coding_with3utr=txListsAllTPMcdsDetHas3utrV/lengths(txListsAllTPMcdsDet),
+   protein_coding_without3utr=lengths(txListsAllTPMcdsDet)-txListsAllTPMcdsDetHas3utrV
+);
+txListsAllDF$otherNc <- txListsAllDF[,"txListsAllTPMdet"] - (txListsAllDF[,"non_coding"] + txListsAllDF[,"protein_coding"]);
+
+txListsAllDFuse <- t(as.matrix(txListsAllDF[,c(
+   "protein_coding_with3utr","protein_coding_without3utr",
+   "non_coding","otherNc"
+   )]));
+
+## Scale to 100%
+txListsAllDFuseScaled <- t(t(txListsAllDFuse) / colSums(txListsAllDFuse))*100;
+
+txListsAllDFuseScaled2 <- melt(txListsAllDFuseScaled);
+txListsAllDFuseScaled2$Var1 <- factor(txListsAllDFuseScaled2$Var1,
+   levels=provigrep(c("other","noncoding|non.coding","without","with","."),
+      as.character(txListsAllDFuseScaled2$Var1)));
+
+txListsAllDFuseScaled2$group <- pasteByRowOrdered(txListsAllDFuseScaled2[,c("Var2","Var1")]);
+```
+
 
 ### Properties of hippocampus dendritic RNAs, supplemental figure 7
 
@@ -929,52 +1083,6 @@ In preparation.
 
 
 #### supp7C Violin plot of annotated 3'UTR lengths in each RNA list
-
-We imported Gencode vM12 comprehensive GTF into R using
-R Bioconductor GenomicFeatures package, with which we derived
-3'UTR regions, using `GenomicFeatures::makeTxDbFromGFF()` and
-`GenomicFeatures::threeUTRsByTranscript()`, respectively.
-
-This step re-uses the Gencode GTF file downloaded above, then
-converts it to a `"Txdb"` object, which is a SQLite relational database
-format. This database is saved into a file so it can be recalled
-without re-creating the file again.
-
-```{r, gencode_vM12_gtf}
-localDb <- file.path(".", "vM12gtf.txdb");
-if (!file.exists(localDb)) {
-   vM12txdb <- GenomicFeatures::makeTxDbFromGFF(vM12gtfBase);
-   AnnotationDbi::saveDb(x=vM12txdb, file=localDb);
-} else {
-   vM12txdb <- AnnotationDbi::loadDb(file=localDb);
-}
-```
-
-```{r, three_utr_length, dependson=c("gencode_vM12_gtf","tx2geneDF")}
-## Check for valid vM12txdb since it is not cached properly by knitr
-if (!DBI::dbIsValid(dbconn(vM12txdb))) {
-   vM12txdb <- AnnotationDbi::loadDb(file=localDb);
-}
-## Grab three prime UTR into a GRangesList
-gencode3utr <- GenomicFeatures::threeUTRsByTranscript(vM12txdb,
-   use.names=TRUE);
-values(gencode3utr@unlistData)[,"transcript_id"] <- rep(names(gencode3utr), lengths(gencode3utr));
-values(gencode3utr@unlistData)[,"gene_id"] <- tx2geneDF[values(gencode3utr@unlistData)[,"transcript_id"],"gene_id"];
-values(gencode3utr@unlistData)[,"gene_name"] <- tx2geneDF[values(gencode3utr@unlistData)[,"transcript_id"],"gene_name"];
-values(gencode3utr@unlistData)[,"gene_type"] <- tx2geneDF[values(gencode3utr@unlistData)[,"transcript_id"],"gene_type"];
-values(gencode3utr@unlistData)[,"transcript_type"] <- tx2geneDF[values(gencode3utr@unlistData)[,"transcript_id"],"transcript_type"];
-names(gencode3utr@unlistData) <- pasteByRow(values(gencode3utr@unlistData)[,c("transcript_id","exon_rank")]);
-
-## Summarize widths of three-prime-utr exons by transcript
-threePrimeTx <- sum(width(gencode3utr));
-GencodeVM12mm10threeUtrLength <- sum(width(gencode3utr));
-
-## non-mito detectedTx
-detectedTxMito <- subset(tx2geneDF[match(detectedTx, tx2geneDF$transcript_id),],
-   grepl("^mt-", gene_name))$transcript_id;
-detectedTxNonMito <- setdiff(detectedTx, detectedTxMito);
-
-```
 
 
 We plotted 3'UTR lengths as violin plots using only detected transcripts
