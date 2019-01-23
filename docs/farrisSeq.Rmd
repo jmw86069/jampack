@@ -883,9 +883,14 @@ range(pheat_expr_breaks);
 cBRexpr <- circlize::colorRamp2(breaks=pheat_expr_breaks,
    colors=colorRampPalette(tail(getColorRamp("RdBu_r", n=15), 13))(51));
 
+## Rename labels
+## CBonly -> "Cell Body Retained"
+## non-pyramidal -> "Non-Pyramidal"
+## CB1andDE1 -> "High-Confidence Dendritic"
+
 ## Create the heatmap
 glHM <- Heatmap(iM4[,iSamplesGrpO],
-   name="Gene List Heatmap",
+   name="Log2 Counts",
    cluster_columns=FALSE,
    show_row_names=FALSE,
    clustering_method_rows="ward.D",

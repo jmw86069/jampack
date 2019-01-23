@@ -2,6 +2,8 @@
 
 ### Refactoring ideas
 
+* Make Jam package dependencies include the version number, which
+may help force proper updates of packages.
 * Consider pre-loading all calculated per-transcript values for
 speed. Meanwhile create corresponding vignettes to describe how
 to calculate each value from raw data. Examples: three prime UTR,
