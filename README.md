@@ -94,5 +94,5 @@ is created in your current working directory.
 1. You may need to install "pandoc" to render the HTML page. In principle,
 the "rmarkdown" R package should have installed a working version of
 pandoc, otherwise install it manually as described at
-[https:://pandoc.org](https:://pandoc.org)
+[https://pandoc.org](https://pandoc.org)
 
