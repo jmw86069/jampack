@@ -8,7 +8,6 @@ output:
     toc_float:
       collapsed: true
     theme: cerulean
-    css: liao_style.css
     highlight: pygments
     df_print: kable
   word_document:
@@ -19,6 +18,7 @@ always_allow_html: yes
 ---
 
 ```{r setup, include=FALSE}
+#    css: liao_style.css
 ## To render this page:
 ## In the farrisSeq folder run:
 ## rmarkdown::render("farrisSeq.Rmd", "html_document", knit_root_dir=getwd(), output_dir=getwd());

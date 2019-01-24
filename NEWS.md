@@ -13,6 +13,9 @@ Bioconductor once it is released there.
 * Added rmarkdown to Suggested packages, since it is required
 to render the farrisSeq.Rmd file.
 * Added instructions for building the farrisSeq.Rmd HTML report.
+* Removed liao_style.css which was mostly useful for customized
+table rendering, and is not necessary for this Rmarkdown file.
+* Incremented some required version numbers for other Jam packages.
 
 # jampack version 0.0.6.9000
 

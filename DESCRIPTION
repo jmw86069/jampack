@@ -10,10 +10,10 @@ Depends: R (>= 3.0.0),
     jamba (>= 0.0.25.900),
     colorjam (>= 0.0.6.900),
     jamma (>= 0.0.5.900),
-    splicejam (>= 0.0.7.900)
+    splicejam (>= 0.0.8.900)
 Imports: ggrepel
 biocViews:
-Suggests: farrisdata (>= 0.0.3.900),
+Suggests: farrisdata (>= 0.0.4.900),
     seqinr,
     png,
     Cairo,
