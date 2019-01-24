@@ -10,6 +10,9 @@ done originally and in the manuscript.
 options in ComplexHeatmap on Github which are not yet on Bioconductor.
 Depends was updated to point to Github, will be changed to
 Bioconductor once it is released there.
+* Added rmarkdown to Suggested packages, since it is required
+to render the farrisSeq.Rmd file.
+* Added instructions for building the farrisSeq.Rmd HTML report.
 
 # jampack version 0.0.6.9000
 
