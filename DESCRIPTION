@@ -18,6 +18,11 @@ Suggests: farrisdata (>= 0.0.3.900),
     png,
     Cairo,
     rmarkdown,
+    kableExtra,
+    plotly,
+    made4,
+    matrixStats,
+    SummarizedExperiment,
     ComplexHeatmap (>= 1.99.5)
 License: GPL-2
 Encoding: UTF-8

@@ -418,10 +418,10 @@ pheat_breaks <- warpAroundZero(seq(from=-1, to=1, length.out=51), lens=1);
 cBR <- circlize::colorRamp2(breaks=pheat_breaks,
    col=getColorRamp("RdBu_r", n=51));
 
-colHA <- HeatmapAnnotation(colDataColorsRepL[iSamplesCB,2:1],
+colHA <- HeatmapAnnotation(df=colDataColorsRepL[iSamplesCB,2:1],
    show_annotation_name=TRUE,
    col=pheat_colors);
-rowA <- rowAnnotation(colDataColorsRepL[iSamplesCB,2:1],
+rowA <- rowAnnotation(df=colDataColorsRepL[iSamplesCB,2:1],
    col=pheat_colors,
    show_annotation_name=TRUE,
    show_legend=FALSE);
@@ -467,10 +467,10 @@ colDataColorsGrp <- df2colorSub(colDataColorsGrpL,
 Heatmap using ComplexHeatmap:
 
 ```{r corr_by_compartment_CB, fig.height=8, fig.width=10, dependson="corr_by_compartment_prep"}
-colHA2 <- HeatmapAnnotation(colDataColorsGrpL[iSamplesGrp,2:1],
+colHA2 <- HeatmapAnnotation(df=colDataColorsGrpL[iSamplesGrp,2:1],
    show_annotation_name=TRUE,
    col=pheat_colors);
-rowA2 <- rowAnnotation(colDataColorsGrpL[iSamplesGrp,2:1],
+rowA2 <- rowAnnotation(df=colDataColorsGrpL[iSamplesGrp,2:1],
    col=pheat_colors,
    show_annotation_name=TRUE,
    show_legend=FALSE);
@@ -1134,7 +1134,7 @@ ggTxType <- ggplot(txListsAllDFuseScaled2, aes(x=Var2, fill=group, color=group))
    geom_bar(aes(weight=value)) +
    scale_fill_manual(values=txColorSubV) + 
    scale_color_manual(values=makeColorDarker(darkFactor=20, txColorSubV)) +
-   theme_jam(base_size=30) +
+   theme_jam(base_size=20) +
    theme(
       panel.grid.major.x=element_blank(),
       panel.grid.minor.x=element_blank()) +
