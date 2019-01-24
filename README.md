@@ -77,17 +77,17 @@ then render the HTML report.
 
 > rmarkdown::render("farrisSeq.Rmd", "html_document", knit_root_dir=getwd(), output_dir=getwd())
 
-    * Note the options which help this command behave well:
-    
-    1. "knit_root_dir=getwd()" will ensure that the new R result files are
-    created in your current working directory. If you point to the
-    "farrisSeq.Rmd" file in another directory, or created a symbolic
-    link to the "farrisSeq.Rmd", this option ensures that your new
-    data is created in your current working directory. Otherwise
-    by default, new files are created in the directory containing the
-    actual .Rmd file.
-    2. "output_dir=getwd()" again this option ensures the new HTML file
-    is created in your current working directory.
+* Note the options which help this command behave well:
+ 
+1. "knit_root_dir=getwd()" will ensure that the new R result files are
+created in your current working directory. If you point to the
+"farrisSeq.Rmd" file in another directory, or created a symbolic
+link to the "farrisSeq.Rmd", this option ensures that your new
+data is created in your current working directory. Otherwise
+by default, new files are created in the directory containing the
+actual .Rmd file.
+2. "output_dir=getwd()" again this option ensures the new HTML file
+is created in your current working directory.
     
 #### If you encounter problems rendering "farrisSeq.Rmd"
 
