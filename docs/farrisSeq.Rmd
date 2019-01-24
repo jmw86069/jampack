@@ -420,10 +420,16 @@ cBR <- circlize::colorRamp2(breaks=pheat_breaks,
 
 colHA <- HeatmapAnnotation(df=colDataColorsRepL[iSamplesCB,2:1],
    show_annotation_name=TRUE,
+   border=TRUE,
+   annotation_legend_param=list(
+      title_gp=gpar(fontsize=12, fontface="bold")),
    col=pheat_colors);
 rowA <- rowAnnotation(df=colDataColorsRepL[iSamplesCB,2:1],
    col=pheat_colors,
    show_annotation_name=TRUE,
+   border=TRUE,
+   annotation_legend_param=list(
+      title_gp=gpar(fontsize=12, fontface="bold")),
    show_legend=FALSE);
 
 corHM <- Heatmap(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
@@ -433,8 +439,16 @@ corHM <- Heatmap(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
    column_dend_height=unit(20, "mm"),
    row_dend_width=unit(20, "mm"),
    top_annotation=colHA,
+   left_annotation=rowA,
+   border=TRUE,
+   heatmap_legend_param=list(
+      grid_width=unit(8, "mm"),
+      border="black",
+      title_gp=gpar(fontsize=12, fontface="bold"),
+      legend_height=unit(30, "mm")),
+   row_dend_side="left",
    col=cBR);
-draw(rowA + corHM, row_dend_side="left");
+draw(corHM, merge_legend=TRUE);
 
 ```
 
@@ -469,10 +483,16 @@ Heatmap using ComplexHeatmap:
 ```{r corr_by_compartment_CB, fig.height=8, fig.width=10, dependson="corr_by_compartment_prep"}
 colHA2 <- HeatmapAnnotation(df=colDataColorsGrpL[iSamplesGrp,2:1],
    show_annotation_name=TRUE,
+   border=TRUE,
+   annotation_legend_param=list(
+      title_gp=gpar(fontsize=12, fontface="bold")),
    col=pheat_colors);
 rowA2 <- rowAnnotation(df=colDataColorsGrpL[iSamplesGrp,2:1],
    col=pheat_colors,
    show_annotation_name=TRUE,
+   border=TRUE,
+   annotation_legend_param=list(
+      title_gp=gpar(fontsize=12, fontface="bold")),
    show_legend=FALSE);
 
 corHM2 <- Heatmap(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
@@ -482,8 +502,16 @@ corHM2 <- Heatmap(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
    column_dend_height=unit(20, "mm"),
    row_dend_width=unit(20, "mm"),
    top_annotation=colHA2,
+   left_annotation=rowA2,
+   border=TRUE,
+   heatmap_legend_param=list(
+      grid_width=unit(8, "mm"),
+      border="black",
+      title_gp=gpar(fontsize=12, fontface="bold"),
+      legend_height=unit(30, "mm")),
+   row_dend_side="left",
    col=cBR);
-draw(rowA2 + corHM2, row_dend_side="left");
+draw(corHM2, merge_legend=TRUE);
 ```
 
 #### Splom plot, refers to Figure 2, and Supplemental Figure 3
@@ -1033,7 +1061,6 @@ colHA3grp <- HeatmapAnnotation(Group=rownames(colDataColorsGrpL[iSamplesGrpO,]),
    annotation_height=unit(7, "mm"), height=unit(7, "mm"),
    border=TRUE,
    annotation_legend_param=list(
-      #border="black",
       title_gp=gpar(fontsize=12, fontface="bold")),
    col=list(Group=colorSub[iSamplesGrpO]));
 
@@ -1046,7 +1073,7 @@ rowHA3 <- HeatmapAnnotation(which="row",
 rowHA3B <- rowAnnotation(
    foo=anno_block(gp=gpar(fill=colorSubGeneLists[sort(names(geneListsAll)[3:5])]),
       labels=sort(names(geneListsAll)[3:5]),
-      labels_gp = gpar(col = "white"))
+      labels_gp=gpar(col="white"))
    );
 
 ## Define color ramp
@@ -1075,6 +1102,7 @@ glHM <- Heatmap(iM4[,iSamplesGrpO],
    column_dend_height=unit(20, "mm"),
    row_dend_width=unit(20, "mm"),
    top_annotation=colHA3grp,
+   left_annotation=rowHA3B,
    split=factor(gl4names[rownames(iM4)], levels=names(geneListsAll)[3:5]),
    gap=unit(3, "mm"),
    use_raster=TRUE,
@@ -1084,10 +1112,12 @@ glHM <- Heatmap(iM4[,iSamplesGrpO],
       border="black",
       title_gp=gpar(fontsize=12, fontface="bold"),
       legend_height=unit(30, "mm")),
+   row_dend_side="left",
    raster_device="CairoPNG",
    col=cBRexpr);
-draw(glHM + rowHA3B, row_dend_side="left", merge_legend=TRUE);
+draw(glHM + rowHA3B, merge_legend=TRUE);
 ## Print the number of rows and columns in the heatmap
+## (broken in non-interactive sessions)
 if (1 == 2) {
    legend(x=grconvertX(0.00, "ndc"),
       y=grconvertY(0.05, "ndc"),
