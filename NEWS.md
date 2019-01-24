@@ -1,3 +1,16 @@
+# jampack version 0.0.7.9000
+
+* Added stacked bar chart for transcript types by Neuronal
+Transcript List.
+* Created "detected" Neuronal Transcript Lists, which is used
+to describe the transcript types.
+* Modified detectedTxTPManyL to use CB and DE samples, as was
+done originally and in the manuscript.
+* Enhanced the heatmap of Neuronal Transcripts, using newer
+options in ComplexHeatmap on Github which are not yet on Bioconductor.
+Depends was updated to point to Github, will be changed to
+Bioconductor once it is released there.
+
 # jampack version 0.0.6.9000
 
 * Added Rmarkdown cache.extra to the "docs/farrisSeq.Rmd" file,

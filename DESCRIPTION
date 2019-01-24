@@ -1,6 +1,6 @@
 Package: jampack
 Title: Jam Pack of Packages
-Version: 0.0.6.900
+Version: 0.0.7.900
 Authors@R: person(given="James M.", family="Ward",
     email="jmw86069@gmail.com", role=c("aut", "cre"))
 Description: This package is mainly a central package to install
@@ -17,7 +17,7 @@ Suggests: farrisdata (>= 0.0.3.900),
     seqinr,
     png,
     Cairo,
-    ComplexHeatmap
+    ComplexHeatmap (>= 1.99.5)
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
@@ -25,7 +25,8 @@ Remotes: github::jmw86069/jamba,
     github::jmw86069/colorjam,
     github::jmw86069/splicejam,
     github::jmw86069/jamma,
-    github::jmw86069/farrisdata
+    github::jmw86069/farrisdata,
+    github::jokergoo/ComplexHeatmap
 URL: http://github.com/jmw86069/jampack
 BugReports: http://github.com/jmw86069/jampack/issues
 VignetteBuilder: knitr

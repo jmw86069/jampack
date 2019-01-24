@@ -792,9 +792,12 @@ iMatrixTxTPM[assays(farrisTxSE)[["raw_tpm"]] == 0] <- 0
 ## pseudocounts >= 5, TPM >= 1
 ## no requirement for isoforms to be a certain percent the max per gene
 detectedTxTPManyL <- defineDetectedTx(
-   iMatrixTx=assays(farrisTxSE[,iSamplesCB])[["counts"]],
-   iMatrixTxTPM=assays(farrisTxSE[,iSamplesCB])[["tpm"]],
-   groups=colData(farrisTxSE[,iSamplesCB])$groupName,
+#   iMatrixTx=assays(farrisTxSE[,iSamplesCB])[["counts"]],
+#   iMatrixTxTPM=assays(farrisTxSE[,iSamplesCB])[["tpm"]],
+#   groups=colData(farrisTxSE[,iSamplesCB])$groupName,
+   iMatrixTx=assays(farrisTxSE)[["counts"]],
+   iMatrixTxTPM=assays(farrisTxSE)[["tpm"]],
+   groups=colData(farrisTxSE)$groupName,
    cutoffTxPctMax=0,
    cutoffTxExpr=5,
    cutoffTxTPMExpr=1,
@@ -960,20 +963,25 @@ txListsAllTPMcdsDetHas3utr <- lapply(txListsAllTPM, function(i){
    c(format(iV, scientific=FALSE, big.mark=","),
       pct=round(1000*nrow(subset(iDF, TxHas3UTR)) / nrow(iDF))/10);
 });
-txListsAllTPMcdsDetHas3utr;
+#txListsAllTPMcdsDetHas3utr;
 txListsAllTPMcdsDetHas3utrV <- unlist(lapply(txListsAllTPMcdsDetHas3utr, function(i){
    as.numeric(gsub(",", "", i[["TRUE"]]));
 }));
+
+## Subset txListsAllTPM for detected transcripts
+txListsAllTPMdet <- lapply(txListsAllTPM, function(i){
+   intersect(i, detectedTx);
+});
 
 
 ## Make a small table with txListsAll counts
 txListsAllDF <- data.frame(geneListsAll=lengths(geneListsAll),
    txListsAllTPM=lengths(txListsAllTPM),
-   txListsAllTPMdet=lengths(txListsAllTPM),
+   txListsAllTPMdet=lengths(txListsAllTPMdet),
    non_coding=lengths(txListsAllTPMncDet),
-   pct_non_coding=lengths(txListsAllTPMncDet)/lengths(txListsAllTPM),
+   pct_non_coding=lengths(txListsAllTPMncDet)/lengths(txListsAllTPMdet),
    protein_coding=lengths(txListsAllTPMcdsDet),
-   pct_protein_coding=lengths(txListsAllTPMcdsDet)/lengths(txListsAllTPM),
+   pct_protein_coding=lengths(txListsAllTPMcdsDet)/lengths(txListsAllTPMdet),
    protein_coding_with3utr=txListsAllTPMcdsDetHas3utrV,
    pct_protein_coding_with3utr=txListsAllTPMcdsDetHas3utrV/lengths(txListsAllTPMcdsDet),
    protein_coding_without3utr=lengths(txListsAllTPMcdsDet)-txListsAllTPMcdsDetHas3utrV
@@ -1003,31 +1011,43 @@ txListsAllDFuseScaled2$group <- pasteByRowOrdered(txListsAllDFuseScaled2[,c("Var
 #### supp7A Heatmap of high-confidence dendritic, cell body retained, and non-pyramidal RNA lists
 
 
-```{r, heatmap_genelists345}
-gl4 <- unlist(geneListsAll[c(3,4,5)]);
+```{r, heatmap_genelists345_prep}
+## Display only genes from the 
+glWhich <- c("CBonly", "non-pyramidal", "CB1andDE1");
+gl4 <- unname(unlist(geneListsAll[glWhich]));
 ## Make a vector of gene list names, named by gene
-gl4names <- nameVector(rep(names(geneListsAll[3:5]), lengths(geneListsAll[3:5])),
-   unlist(gl4));
-#length(gl4);    # 3474 total
+gl4names <- nameVector(rep(names(geneListsAll[glWhich]),
+   lengths(geneListsAll[glWhich])),
+   gl4);
 iSamplesGrpO <- mixedSort(iSamplesGrp);
+## Use all gene group median values
 iM4 <- farrisGeneGroupMedians[gl4,iSamplesGrpO];
 
-## Create color bar for the top of the heatmap
-colHA3 <- HeatmapAnnotation(colDataColorsGrpL[iSamplesGrpO,2:1],
+## Column annotations using each experimental factor (not used)
+colHA3 <- HeatmapAnnotation(df=colDataColorsGrpL[iSamplesGrpO,2:1],
    show_annotation_name=TRUE,
    col=pheat_colors);
+
+## Column annotations using group name and color
+colHA3grp <- HeatmapAnnotation(Group=rownames(colDataColorsGrpL[iSamplesGrpO,]),
+   annotation_height=unit(7, "mm"), height=unit(7, "mm"),
+   border=TRUE,
+   annotation_legend_param=list(
+      #border="black",
+      title_gp=gpar(fontsize=12, fontface="bold")),
+   col=list(Group=colorSub[iSamplesGrpO]));
+
+## Row annotations as colors with no labels
 rowHA3 <- HeatmapAnnotation(which="row",
    df=data.frame(List=gl4names[rownames(iM4)]),
-   col=list(List=colorSubGeneLists[names(geneListsAll)[3:5]]),
-   width=unit(1, "cm") )
-rowHM3 <- Heatmap(data.frame(List=gl4names[rownames(iM4)]),
-   name="List",
-   width=unit(1, "cm"),
-   show_row_names=FALSE,
-   col=colorSubGeneLists[names(geneListsAll)[3:5]],
-   cell_fun=function(j, i, x, y, width, height, fill) {
-       grid.text(sprintf("%.1f", mat[i, j]), x, y, gp = gpar(fontsize = 10))
-   })
+   annotation_width=unit(7, "mm"), width=unit(7, "mm"),
+   col=list(List=colorSubGeneLists[names(geneListsAll)[3:5]]));
+## Row annotations with block labels
+rowHA3B <- rowAnnotation(
+   foo=anno_block(gp=gpar(fill=colorSubGeneLists[sort(names(geneListsAll)[3:5])]),
+      labels=sort(names(geneListsAll)[3:5]),
+      labels_gp = gpar(col = "white"))
+   );
 
 ## Define color ramp
 pheat_expr_breaks <- warpAroundZero(seq(from=-2, to=18, length.out=51),
@@ -1035,43 +1055,49 @@ pheat_expr_breaks <- warpAroundZero(seq(from=-2, to=18, length.out=51),
    lens=4);
 range(pheat_expr_breaks);
 cBRexpr <- circlize::colorRamp2(breaks=pheat_expr_breaks,
-   colors=colorRampPalette(tail(getColorRamp("RdBu_r", n=15), 13))(51));
+   colors=colorRampPalette(tail(warpRamp(getColorRamp("RdBu_r", n=15), lens=0), 12))(51));
+```
 
-## Rename labels
-## CBonly -> "Cell Body Retained"
-## non-pyramidal -> "Non-Pyramidal"
-## CB1andDE1 -> "High-Confidence Dendritic"
+```{r, heatmap_genelists345, fig.height=10, fig.width=8}
 
 ## Create the heatmap
+splitF <- factor(gl4names[rownames(iM4)],
+   levels=(c("CBonly","non-pyramidal","CB1andDE1")));
 glHM <- Heatmap(iM4[,iSamplesGrpO],
    name="Log2 Counts",
+   show_parent_dend_line=FALSE,
    cluster_columns=FALSE,
    show_row_names=FALSE,
-   clustering_method_rows="ward.D",
+   clustering_method_rows="ward.D2",
+   clustering_distance_rows="euclidean",
+   #clustering_method_rows="complete",
+   #clustering_distance_rows="maximum",
    column_dend_height=unit(20, "mm"),
    row_dend_width=unit(20, "mm"),
-   top_annotation=colHA3,
-   split=gl4names[rownames(iM4)],
+   top_annotation=colHA3grp,
+   split=factor(gl4names[rownames(iM4)], levels=names(geneListsAll)[3:5]),
+   gap=unit(3, "mm"),
    use_raster=TRUE,
+   border=TRUE,
+   heatmap_legend_param=list(
+      grid_width=unit(8, "mm"),
+      border="black",
+      title_gp=gpar(fontsize=12, fontface="bold"),
+      legend_height=unit(30, "mm")),
    raster_device="CairoPNG",
    col=cBRexpr);
-#draw(rowHA3 + glHM + rowHM3, row_dend_side="left");
-draw(rowHA3 + glHM, row_dend_side="left");
+draw(glHM + rowHA3B, row_dend_side="left", merge_legend=TRUE);
+## Print the number of rows and columns in the heatmap
 if (1 == 2) {
-   hm4grp <- heatmap.2(iM4,
-      col=colorRampPalette(tail(getColorRamp("RdBu_r"), 13))(31),
-      #colLensFactor=2,
-      symkey=FALSE,
-      symbreaks=FALSE,
-      trace="none",
-      #distMethod="correlation",
-      #colorSub=nameVector(rainbowCat(5), names(geneListsAll)),
-      #distMethod="maximum", hclustMethod="complete",
-      #rowGroups=nameVector(list2df(geneListsAll[c(3,4,5)])[,1:2])[gl4use],
-      #RowvCutreeK=4,
-      Colv=FALSE,
-      labRow=NA,
-      useRaster=TRUE);
+   legend(x=grconvertX(0.00, "ndc"),
+      y=grconvertY(0.05, "ndc"),
+      legend=paste(
+         dim(iM4[,iSamplesGrpO]),
+         c("rows", "columns")),
+      cex=0.8,
+      xpd=NA,
+      bg="transparent",
+      box.col="transparent");
 }
 
 ```
@@ -1081,6 +1107,43 @@ if (1 == 2) {
 
 In preparation.
 
+```{r, tx_list_by_type_key, fig.height=6, fig.width=7}
+## Define the colors by type
+nType <- nrow(txListsAllDFuse);
+nList <- ncol(txListsAllDFuse);
+txColorSubL <- split(unname(
+   color2gradient(n=nType,
+      reverseGradient=FALSE,
+      gradientWtFactor=1,
+      rainbowJam(nList))),
+   factor(rep(colnames(txListsAllDFuse), each=nType),
+      levels=colnames(txListsAllDFuse)));
+txColorSubM <- do.call(cbind, txColorSubL);
+rownames(txColorSubM) <- rownames(txListsAllDFuse);
+colnames(txColorSubM) <- NULL;
+par("mar"=c(4,14,4,2));
+imageByColors(txColorSubM,
+   main="Transcript Type Color Key");
+```
+
+```{r, tx_list_by_type_fig, fig.height=12, fig.width=12}
+txColorSubV <- nameVector(unlist(txColorSubL),
+   txListsAllDFuseScaled2$group);
+
+ggTxType <- ggplot(txListsAllDFuseScaled2, aes(x=Var2, fill=group, color=group)) +
+   geom_bar(aes(weight=value)) +
+   scale_fill_manual(values=txColorSubV) + 
+   scale_color_manual(values=makeColorDarker(darkFactor=20, txColorSubV)) +
+   theme_jam(base_size=30) +
+   theme(
+      panel.grid.major.x=element_blank(),
+      panel.grid.minor.x=element_blank()) +
+   ylab("Percent") +
+   xlab("Transcript List") +
+   ggtitle("txListsAllTPM by gene_type and 3'UTR") +
+   theme(legend.position="none");
+print(ggTxType);
+```
 
 #### supp7C Violin plot of annotated 3'UTR lengths in each RNA list
 
