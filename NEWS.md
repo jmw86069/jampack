@@ -1,3 +1,14 @@
+# jampack version 0.0.9.9000
+
+* Requires splicejam 0.0.26.900 for several new functions.
+* Added methods for ALE for proximal-distal ALE analysis.
+
+# jampack version 0.0.8.9000
+
+* Moved "library()" calls to the Rmarkdown body, they
+should be displayed in the HTML output so others can copy-paste
+them to test the R code.
+
 # jampack version 0.0.7.9000
 
 * Added stacked bar chart for transcript types by Neuronal

@@ -23,27 +23,6 @@ always_allow_html: yes
 ## In the farrisSeq folder run:
 ## rmarkdown::render("farrisSeq.Rmd", "html_document", knit_root_dir=getwd(), output_dir=getwd());
 
-suppressPackageStartupMessages(library(knitr));
-suppressPackageStartupMessages(library(kableExtra));
-suppressPackageStartupMessages(library(dplyr));
-suppressPackageStartupMessages(library(plotly));
-suppressPackageStartupMessages(library(made4));
-suppressPackageStartupMessages(library(matrixStats));
-suppressPackageStartupMessages(library(ComplexHeatmap));
-suppressPackageStartupMessages(library(SummarizedExperiment));
-
-suppressPackageStartupMessages(library(ggplot2));
-suppressPackageStartupMessages(library(ggrepel));
-
-suppressPackageStartupMessages(library(jamba));
-suppressPackageStartupMessages(library(jamma));
-suppressPackageStartupMessages(library(colorjam));
-suppressPackageStartupMessages(library(splicejam));
-suppressPackageStartupMessages(library(farrisdata));
-
-suppressPackageStartupMessages(library(png));
-suppressPackageStartupMessages(library(Cairo));
-
 knitr::opts_chunk$set(cache=TRUE,
    autodep=TRUE,
    cache.extra=list(
@@ -69,6 +48,43 @@ Raw sequence read data is provided through GEO GSE116343, with RNA-seq
 data available at GEO GSE116342. Data used for analysis in R is provided
 through an R package `farrisdata`, installed in R with
 `devtools::install_github("jmw86069/farrisdata")`.
+
+## R environment setup
+
+This document can be reproduced using the R code displayed in
+this document. The initial steps involve loading R packages
+into memory.
+
+```{r, r_initialization}
+suppressPackageStartupMessages(library(knitr));
+suppressPackageStartupMessages(library(kableExtra));
+suppressPackageStartupMessages(library(dplyr));
+suppressPackageStartupMessages(library(plotly));
+suppressPackageStartupMessages(library(made4));
+suppressPackageStartupMessages(library(matrixStats));
+suppressPackageStartupMessages(library(ComplexHeatmap));
+suppressPackageStartupMessages(library(SummarizedExperiment));
+
+suppressPackageStartupMessages(library(ggplot2));
+suppressPackageStartupMessages(library(ggrepel));
+
+suppressPackageStartupMessages(library(jamba));
+suppressPackageStartupMessages(library(jamma));
+suppressPackageStartupMessages(library(colorjam));
+suppressPackageStartupMessages(library(splicejam));
+suppressPackageStartupMessages(library(farrisdata));
+
+suppressPackageStartupMessages(library(png));
+suppressPackageStartupMessages(library(Cairo));
+
+```
+
+Alternatively, one can download the Rmarkdown file **"farrisSeq.Rmd"**
+from the Github repository. Open R in the folder where the file was saved,
+then run this command in R:
+
+> rmarkdown::render("farrisSeq.Rmd", "html_document", knit_root_dir=getwd(), output_dir=getwd())
+
 
 ## Description of Input Data
 
@@ -1038,6 +1054,8 @@ txListsAllDFuseScaled2$group <- pasteByRowOrdered(txListsAllDFuseScaled2[,c("Var
 
 #### supp7A Heatmap of high-confidence dendritic, cell body retained, and non-pyramidal RNA lists
 
+A heatmap is used to show the pattern of gene expression among the
+Neuronal Gene Lists defined above.
 
 ```{r, heatmap_genelists345_prep}
 ## Display only genes from the 
@@ -1135,7 +1153,8 @@ if (1 == 2) {
 
 #### supp7B Percent breakdown of transcript type by transcript list
 
-In preparation.
+A stacked bar chart is used to show the relative abundances of
+transcript types, for each Neuronal Transcript List.
 
 ```{r, tx_list_by_type_key, fig.height=6, fig.width=7}
 ## Define the colors by type
@@ -1302,6 +1321,22 @@ TtestStatsUtrDF2;
 
 In preparation.
 
+```{r, tx2ale_prep}
+## Check for valid vM12txdb since it is not cached properly by knitr
+if (!DBI::dbIsValid(dbconn(vM12txdb))) {
+   vM12txdb <- AnnotationDbi::loadDb(file=localDb);
+}
+## Define transcripts with ALE regions
+formatInt <- function(x,...){format(x, scientific=FALSE, trim=TRUE, big.mark=",", ...);}
+
+aleL <- tx2ale(
+   threeUtrGRL=gencode3utr,
+   txdb=vM12txdb,
+   detectedTx=detectedTx,
+   iMatrix=assays(farrisTxSE)[["tpm"]],
+   method="flank",
+   tx2geneDF=tx2geneDF);
+```
 
 #### supp7E Violin plot of the average percentage of codons with CAI <= 0.5 per RNA list
 
