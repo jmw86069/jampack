@@ -1,3 +1,7 @@
+# jampack version 0.0.12.9000
+
+* ALE violin plot implemented, requires splicejam v0.0.11.900 or higher.
+
 # jampack version 0.0.11.9000
 
 * Further ALE analysis steps.
