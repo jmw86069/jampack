@@ -1348,6 +1348,7 @@ aleL <- tx2ale(
    detectedTx=detectedTx,
    iMatrix=assays(farrisTxSE)[["tpm"]],
    method="flank",
+   verbose=FALSE,
    tx2geneDF=tx2geneDF);
 ## use tx2ale to calculate ALE using count data
 iMatrixAleCt <- log2(1+
@@ -1377,7 +1378,7 @@ thresholds for CB and DE samples.
 Data were filtered so that the aggregate ALE TPM value for either
 ALE1 or ALE2 for each gene was at least 2.
 
-```{r, ale_analysis, dependson="tx2ale_prep"}
+```{r, ale_analysis, dependson="tx2ale_prep", fig.height=10, fig.width=12}
 facet_groups <- nameVector(gsub("^.+_", "", groups), names(groups))
 groups <- nameVector(colData(farrisTxSE[,iSamples])$groupName, iSamples);
 
@@ -1411,10 +1412,11 @@ aleViolinL <- ale2violin(aleL$iMatrixAle[,iSamples],
    lineAlpha=0.1,
    subsetFunc=subsetCBDE,
    facet_name="Region",
+   verbose=FALSE,
    facet_groups=facet_groups);
 printDebug("Number of genes represented in each panel (TPM calculations):");
 table(aleViolinL$iDiffAleTall2ctrFacet[,c("Region","geneList")])/2;
-aleViolinL$ggAle2;
+print(aleViolinL$ggAle2);
 
 
 ```
