@@ -1,3 +1,7 @@
+# jampack version 0.0.11.9000
+
+* Further ALE analysis steps.
+
 # jampack version 0.0.10.9000
 
 * Added section for ALE processing, and comparison of

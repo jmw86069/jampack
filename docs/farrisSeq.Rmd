@@ -1414,6 +1414,7 @@ iDiffAleTall2ctr$Region <- gsub("^.+_", "",
 ## Add gene_Region column to connect lines by gene for each region
 iDiffAleTall2ctr[,"gene_Region"] <- pasteByRowOrdered(iDiffAleTall2ctr[,c("Region","gene_name")]);
 
+if (1 == 2) {
 lineAlpha <- 0.4;
 ggAle1 <- ggplot(subset(iDiffAleTall2ctr,
       variable %in% c("ale1","ale2")),
@@ -1439,7 +1440,7 @@ ggAle2 <- ggplot(iDiffAleTall2ctrRegion2,
    facet_grid(Region~geneList) +
    ylab("log2 expression") + xlab("") +
    theme_jam() + scale_fill_manual(values=nameVector(rainbowJam(5), names(geneListsAll)))
-
+}
 ```
 
 
