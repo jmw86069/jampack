@@ -1336,7 +1336,113 @@ aleL <- tx2ale(
    iMatrix=assays(farrisTxSE)[["tpm"]],
    method="flank",
    tx2geneDF=tx2geneDF);
+
 ```
+
+```{r, ale_analysis, dependson="tx2ale_prep"}
+## Calculate group means
+iMatrixAleGrp <- rowGroupMeans(aleL$iMatrixAle,
+   useMedian=FALSE,
+   groups=colData(farrisTxSE[,colnames(aleL$iMatrixAle)])[,"groupName"])
+
+## Convert to violin-ready format
+iDiffAle <- data.frame(check.names=FALSE, iMatrixAleGrp);
+iDiffAle[,"aleNum"] <- gsub("^.+_(ale[0-9]+)$", "\\1", rownames(iDiffAle));
+iDiffAle[,"gene_name"] <- gsub("_ale.+", "", rownames(iDiffAle));
+## Convert briefly to tall format
+iDiffAleTall <- renameColumn(melt(iDiffAle),
+   from=c("variable","value"),
+   to=c("sampleGroup","intensity"));
+## Convert back to wide format
+iDiffAleWide <- dcast(iDiffAleTall,
+   formula=gene_name + sampleGroup ~ aleNum,
+   value.var="intensity")
+## Filter rows where:
+## - the max ale value is below threshold
+## - two UTRs only, removing genes with only 1 or with 3+
+aleCols <- vigrep("^ale[0-9]+$", colnames(iDiffAleWide));
+iDiffAleWideM <- as.matrix(iDiffAleWide[,aleCols,drop=FALSE]);
+## Filter for rowMax at or above threshold, and for non-NA ale2
+maxGroupMeanALE <- 5;
+iDiffAleWideMGMkeep <- (rowMaxs(iDiffAleWideM, na.rm=TRUE) > maxGroupMeanALE &
+   !is.na(iDiffAleWideM[,"ale2"]) &
+   is.na(iDiffAleWideM[,"ale3"]));
+## Use subset of ALE data
+iDiffAleWideUse <- iDiffAleWide[iDiffAleWideMGMkeep,,drop=FALSE];
+maxGroupMeanFloor <- 0;
+iDiffAleWideUse[,aleCols] <- noiseFloor(iDiffAleWideUse[,aleCols,drop=FALSE],
+   minimum=maxGroupMeanFloor);
+## Merge the geneList name for each gene, making one geneList label per row
+## Also subset iDiffAleWideUse to include genes in geneList
+geneListsDF <- renameColumn(list2df(geneListsAll),
+   from=c("item","value"),
+   to=c("geneList","gene_name"));
+iDiffAleWide2 <- merge(
+   x=subset(iDiffAleWideUse, gene_name %in% iDiffAleWide$gene_name),
+   y=subset(geneListsDF, gene_name %in% iDiffAleWide$gene_name &
+      gene_name %in% iDiffAleWideUse$gene_name),
+   all.x=TRUE,
+   all.y=TRUE);
+iDiffAleWide2$sampleGroup <- factor(iDiffAleWide2$sampleGroup,
+   levels=provigrep(c("CB","DE","."), 
+      levels(colData(farrisTxSE[,iSamples])$groupName)));
+iDiffAleWide2$geneList <- factor(iDiffAleWide2$geneList,
+   levels=names(geneListsAll));
+## Also filter to make sure gene is present in both "CB" and "DE"
+## for each geneList
+iDiffAleWide2$Region <- gsub("_.+", "", iDiffAleWide2$sampleGroup);
+iDiffAleWide2$CellType <- gsub("^.+_", "", iDiffAleWide2$sampleGroup);
+iGeneListRegionL <- lapply(split(iDiffAleWide2[,c("gene_name","CellType")],
+   pasteByRow(iDiffAleWide2[,c("geneList","Region")])), function(i){
+   names(tcount(i$gene_name, minCount=2))
+});
+iGeneListRegionDF <- list2df(iGeneListRegionL);
+iGeneListRegionDF$geneList <- gsub("_.+", "", iGeneListRegionDF$item);
+iGeneListRegionDFuniq <- unique(iGeneListRegionDF[,c("value","geneList")]);
+iGeneListRegionDFuniqL <- split(iGeneListRegionDFuniq$value, iGeneListRegionDFuniq$geneList);
+
+## Make a version which centers by ale1
+iDiffAleWide2ctr <- iDiffAleWide2;
+aleCols <- vigrep("^ale[0-9]+$", colnames(iDiffAleWide2ctr));
+iDiffAleWide2ctr[,aleCols] <- (iDiffAleWide2[,aleCols] - iDiffAleWide2[,"ale1"]);
+
+## Convert wide to tall
+iDiffAleTall2ctr <- melt(iDiffAleWide2ctr[,c("gene_name","sampleGroup",aleCols,"geneList")]);
+
+iDiffAleTall2ctr$Region <- gsub("^.+_", "",
+   iDiffAleTall2ctr$sampleGroup);
+## Add gene_Region column to connect lines by gene for each region
+iDiffAleTall2ctr[,"gene_Region"] <- pasteByRowOrdered(iDiffAleTall2ctr[,c("Region","gene_name")]);
+
+lineAlpha <- 0.4;
+ggAle1 <- ggplot(subset(iDiffAleTall2ctr,
+      variable %in% c("ale1","ale2")),
+   aes(y=value, x=variable, fill=geneList)) +
+   geom_violin(draw_quantiles=c(0.5), scale="width") +
+   geom_line(aes(group=gene_Region), alpha=lineAlpha) +
+   facet_grid(Region~geneList) +
+   theme_jam() + scale_fill_manual(values=nameVector(rainbowJam(5), names(geneListsAll)))
+
+## Take the average value per Region (CB,DE)
+iDiffAleTall2ctrRegion <- subset(splicejam::shrinkMatrix(
+   iDiffAleTall2ctr[,c("value"),drop=FALSE],
+   groupBy=pasteByRow(iDiffAleTall2ctr[,c("gene_name","variable","Region","geneList")]),
+   shrinkFunc=mean), grepl("_ale[12]_", groupBy));
+iDF2 <- rbindList(strsplit(iDiffAleTall2ctrRegion$groupBy, "_"));
+colnames(iDF2) <- c("gene_name","variable","Region","geneList");
+iDiffAleTall2ctrRegion2 <- cbind(iDiffAleTall2ctrRegion,
+   iDF2);
+ggAle2 <- ggplot(iDiffAleTall2ctrRegion2,
+   aes(y=value, x=variable, fill=geneList)) +
+   geom_violin(draw_quantiles=c(0.5), scale="width") +
+   geom_line(aes(group=gene_name), alpha=lineAlpha) +
+   facet_grid(Region~geneList) +
+   ylab("log2 expression") + xlab("") +
+   theme_jam() + scale_fill_manual(values=nameVector(rainbowJam(5), names(geneListsAll)))
+
+```
+
+
 
 #### supp7E Violin plot of the average percentage of codons with CAI <= 0.5 per RNA list
 

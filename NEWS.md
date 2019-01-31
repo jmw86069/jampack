@@ -1,3 +1,8 @@
+# jampack version 0.0.10.9000
+
+* Added section for ALE processing, and comparison of
+proximal to distal ALE regions.
+
 # jampack version 0.0.9.9000
 
 * Requires splicejam 0.0.26.900 for several new functions.
