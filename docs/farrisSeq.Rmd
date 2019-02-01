@@ -1379,8 +1379,8 @@ Data were filtered so that the aggregate ALE TPM value for either
 ALE1 or ALE2 for each gene was at least 2.
 
 ```{r, ale_analysis, dependson="tx2ale_prep", fig.height=10, fig.width=12}
-facet_groups <- nameVector(gsub("^.+_", "", groups), names(groups))
 groups <- nameVector(colData(farrisTxSE[,iSamples])$groupName, iSamples);
+facet_groups <- nameVector(gsub("^.+_", "", groups), names(groups))
 
 ## Filter genes for the appropriate geneLists entry
 subsetCBDE <- function(iDiffAleTall2ctr) {
@@ -1555,6 +1555,150 @@ In preparation.
 
 
 ### Differential transcript isoform analysis limma
+
+Differential isoform tests were performed using the R limma
+package, and the `diffSplice()` function, using normalized
+TPM abundances.
+
+#### Definition of experiment design and contrast matrices
+
+The experimental design and contrast matrices are defined based
+upon the Limma Users Guide, using zero intercept. All pairwise and
+two-way contrasts are included, provided each contrast changes only
+one factor at a time.
+
+```{r, design_matrices}
+## Design matrix is defined by the sample groups
+iGroups <- nameVector(
+   colData(farrisTxSE[,iSamples])$groupName,
+      iSamples);
+## Re-order factor levels so CA2 is first
+iGroups <- factor(iGroups,
+   levels=provigrep(c("CA2", "."), levels(iGroups)));
+iDC <- groups2contrasts(iGroups, returnDesign=TRUE);
+iDesign <- iDC$iDesign;
+## Alternative "manual" method
+#iDesign <- stats::model.matrix(~0+iGroups);
+#colnames(iDesign) <- levels(iGroups);
+#rownames(iDesign) <- names(iGroups);
+
+## Contrasts are CB-DE
+iContrasts <- iDC$iContrasts;
+## Alternative format, useful for custom contrasts
+#iContrasts <- limma::makeContrasts(
+#   contrasts=c(
+#      "CA2_DE-CA2_CB",
+#      "CA1_DE-CA1_CB"),
+#   levels=iDesign);
+
+```
+
+#### Differential isoform statistical tests
+
+Differential isoforms are determined using the `limma::diffSplice()`
+function, made conveniently available in the `splicejam::runDiffSplice()`
+function.
+
+```{r, run_diffSplice}
+iMatrixTx <- assays(farrisTxSE[,iSamples])[["tpm"]];
+iMatrixTx[iMatrixTx == 0] <- NA;
+diffSpliceL <- runDiffSplice(
+   iMatrixTx=iMatrixTx,
+   detectedTx=detectedTx,
+   tx2geneDF=tx2geneDF,
+   iDesign=iDesign,
+   iContrasts=iContrasts,
+   cutoffFDR=0.05,
+   cutoffFold=1.5,
+   collapseByGene=TRUE,
+   spliceTest="t",
+   verbose=FALSE,
+   useVoom=FALSE);
+diffSpliceHitsL <- lapply(diffSpliceL$statsDFs, function(iDF){
+   hitColname <- head(vigrep("^hit ", colnames(iDF)), 1);
+   as.character(subset(iDF, iDF[[hitColname]] != 0)$gene_name);
+});
+
+## diffSplice transcript level
+diffSpliceTxL <- runDiffSplice(
+   iMatrixTx=iMatrixTx,
+   detectedTx=detectedTx,
+   tx2geneDF=tx2geneDF,
+   iDesign=iDesign,
+   iContrasts=iContrasts,
+   cutoffFDR=0.05,
+   cutoffFold=1.5,
+   collapseByGene=FALSE,
+   spliceTest="t",
+   verbose=FALSE,
+   useVoom=FALSE);
+diffSpliceHitsTxL <- lapply(diffSpliceTxL$statsDFs, function(iDF){
+   hitColname <- head(vigrep("^hit ", colnames(iDF)), 1);
+   as.character(subset(iDF, iDF[[hitColname]] != 0)$transcript_id);
+});
+#sdim(diffSpliceHitsTxL);
+
+## Subsets of named contrasts
+DEcon <- unvigrep("_CB", names(diffSpliceHitsTxL));
+CBcon <- unvigrep("_DE", names(diffSpliceHitsTxL));
+DEconHits <- length(unique(unlist(
+   diffSpliceHitsL[DEcon])));
+CBconHits <- length(unique(unlist(
+   diffSpliceHitsL[CBcon])));
+DEconHitsTx <- length(unique(unlist(
+   diffSpliceHitsTxL[DEcon])));
+CBconHitsTx <- length(unique(unlist(
+   diffSpliceHitsTxL[CBcon])));
+
+CA1CA2CBcon <- vigrep("CA1.*CA2",
+   unvigrep("DE", names(diffSpliceHitsTxL)));
+CA1CA2DEcon <- vigrep("CA1.*CA2",
+   unvigrep("CB", names(diffSpliceHitsTxL)));
+CA1CA2CBconHits <- length(diffSpliceHitsL[[CA1CA2CBcon]]);
+CA1CA2DEconHits <- length(diffSpliceHitsL[[CA1CA2DEcon]]);
+CA1CA2CBconHitsTx <- length(diffSpliceHitsTxL[[CA1CA2CBcon]]);
+CA1CA2DEconHitsTx <- length(diffSpliceHitsTxL[[CA1CA2DEcon]]);
+
+CA1CA2Twocon <- vigrep("CA1.*CA2_CB",
+   vigrep("DE", names(diffSpliceHitsTxL)));
+CA1CA2TwoconHitsTx <- length(diffSpliceHitsTxL[[CA1CA2Twocon]]);
+CA1CA2TwoconHits <- length(diffSpliceHitsL[[CA1CA2Twocon]]);
+
+```
+
+Statistical hits were defined as having a linear fold change >= 1.5,
+and a Benjamini Hochberg adjusted P-value <= 0.05.
+
+* **`r formatInt(nrow(diffSpliceL$statsDFs[[1]]))`** genes with multiple detected isoforms
+were tested, which include
+* **`r formatInt(nrow(diffSpliceTxL$statsDFs[[1]]))`** detected isoforms in
+these multi-isoform genes.
+* **`r formatInt(length(unique(unlist(diffSpliceHitsTxL))))`** total unique differential
+transcript isoforms from
+* **`r formatInt(length(unique(unlist(diffSpliceHitsL))))`** unique genes across all
+comparisons.
+
+Interestingly, only a minor percentage of isoform hits came from cell body
+comparisons (e.g. CA1 cell body vs CA2 cell body,
+**`r formatInt(length(diffSpliceHitsTxL[["CA1_CB-CA2_CB"]]))`**
+differentially spliced transcript isoforms from 
+**`r formatInt(length(diffSpliceHitsL[["CA1_CB-CA2_CB"]]))`** unique genes),
+suggesting that mature hippocampal neurons overwhelmingly express
+the same isoforms in similar proportions for co-expressed genes,
+albeit with nearly
+**`r formatInt(ceiling(length(diffSpliceHitsL[["CA1_CB-CA2_CB"]]) / 50)*50)`**
+exceptions.
+
+In contrast, the vast majority of differentially expressed isoform
+hits came from dendrite comparisons
+(**`r formatInt(DEconHitsTx)`**
+differentially spliced transcript isoforms from
+**`r formatInt(DEconHits)`** unique genes). A subset of these hits
+overlapped with the two-way comparison (e.g. CA2 cell body to
+dendrite vs CA1 cell body to dendrite,
+**`r CA1CA2TwoconHitsTx`** differentially spliced transcript
+isoforms from **`r CA1CA2TwoconHitsTx`** unique genes),
+suggesting either cell-type and/or compartment specific splicing.
 
 
 ### Splicing, Sashimi plots

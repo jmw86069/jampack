@@ -1,3 +1,8 @@
+# jampack version 0.0.13.9000
+
+* Differential isoform analysis, experiment design and contrast definitions
+added to Rmarkdown.
+
 # jampack version 0.0.12.9000
 
 * ALE violin plot implemented, requires splicejam v0.0.11.900 or higher.
