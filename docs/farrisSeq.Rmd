@@ -41,8 +41,8 @@ options("kable_styling_position"="left",
 ```
 
 This document describes and demonstrates analysis methods used to analyze
-mouse hippocampal subregion-specific transcriptome RNA-seq data
-(Farris et al manuscript in preparation.)
+mouse hippocampal subregion- and compartment-specific transcriptome
+RNA-seq data (Farris et al manuscript in preparation.)
 
 Raw sequence read data is provided through GEO GSE116343, with RNA-seq
 data available at GEO GSE116342. Data used for analysis in R is provided
@@ -153,7 +153,7 @@ accessible, using this command: `assays(farrisGeneSE)[["raw_counts"]]`
 the Gencode GTF file. 
 ```{r, gene_table, dependson="load_gene_data"}
 as.data.frame(head(rowData(farrisGeneSE), 10)) %>%
-   mutate() %>%
+   dplyr::mutate() %>%
    dplyr::select(probeID, geneSymbol, ends_with("_type"),
       contains("has")) %>%
    kable(escape=FALSE) %>%
@@ -1599,7 +1599,7 @@ Differential isoforms are determined using the `limma::diffSplice()`
 function, made conveniently available in the `splicejam::runDiffSplice()`
 function.
 
-```{r, run_diffSplice}
+```{r, run_diffSplice, dependson=c("design_matrices","detectedTxTPM")}
 iMatrixTx <- assays(farrisTxSE[,iSamples])[["tpm"]];
 iMatrixTx[iMatrixTx == 0] <- NA;
 diffSpliceL <- runDiffSplice(
@@ -1637,7 +1637,9 @@ diffSpliceHitsTxL <- lapply(diffSpliceTxL$statsDFs, function(iDF){
    as.character(subset(iDF, iDF[[hitColname]] != 0)$transcript_id);
 });
 #sdim(diffSpliceHitsTxL);
+```
 
+```{r, tx_hit_summary, dependson="run_diffSplice"}
 ## Subsets of named contrasts
 DEcon <- unvigrep("_CB", names(diffSpliceHitsTxL));
 CBcon <- unvigrep("_DE", names(diffSpliceHitsTxL));
@@ -1700,6 +1702,72 @@ dendrite vs CA1 cell body to dendrite,
 isoforms from **`r CA1CA2TwoconHitsTx`** unique genes),
 suggesting either cell-type and/or compartment specific splicing.
 
+
+#### Export stats results to Excel
+
+The stats results will be exported to Excel, using the `openxlsx` R
+package, storing each stats table as its own worksheet.
+
+```{r, export_stats_xlsx, dependson="run_diffSplice"}
+GroupColnames <- c("Compartment","Region");
+contrastsDF <- iDC$iContrastNames;
+colnames(contrastsDF)[1:2] <- GroupColnames;
+contrastsDFsplit <- gsub("^_", "",
+   jamba::pasteByRow(
+      do.call(cbind,
+         lapply(nameVector(GroupColnames), function(i){
+            ifelse(lengths(strsplit(as.character(contrastsDF[[i]]), ",")) > 1,
+               i,
+               NA)
+         })
+      )
+   )
+);
+contrastsL <- split(as.character(contrastsDF$contrastName),
+   contrastsDFsplit);
+con2label <- function(i) {
+   gsub("_$", "", cPaste(sep="_", doSort=FALSE,
+      lapply(i, function(j){
+         sortSamples(preControlTerms=c("CB","DE"),
+            unique(unlist(
+               strsplit(j, "[-_()]+"))));
+      })
+   ))
+}
+## Loop through each contrast list and save an Excel file
+for (i in nameVectorN(contrastsL)) {
+   iXlsx <- paste0("DiffIsoforms_by_", i, "_", jamba::getDate(), ".xlsx");
+   #printDebug(i, "", ": ", iXlsx,
+   #   ", ", length(contrastsL[[i]]), " worksheets");
+   for (iCon in contrastsL[[i]]) {
+      iLab <- con2label(iCon);
+      #printDebug("   ", iLab);
+      #iDFtx <- diffSpliceTxL$statsDFs[[iCon]];
+      ## Gene-centric stats table
+      iDFgene <- diffSpliceL$statsDFs[[iCon]];
+      ## Remove t-statistic column, reorder hit column
+      iDFgene <- dplyr::select(iDFgene, -matches("^t ")) %>%
+         dplyr::select(matches("gene|transcript"),
+            matches("^hit "),
+            everything());
+      jamba::writeOpenxlsx(file=iXlsx,
+         x=iDFgene,
+         sheetName=iLab,
+         append=(!iCon == contrastsL[[i]][[1]]),
+         highlightColumns=igrep("gene|transcript", colnames(iDFgene)),
+         pvalueColumns=igrep("p.val|fdr", colnames(iDFgene)),
+         lfcColumns=igrep("logfc", colnames(iDFgene)),
+         numColumns=igrep("groupmean", colnames(iDFgene)),
+         intColumns=igrep("^numTx", colnames(iDFgene)),
+         intRule=c(0,7,15),
+         hitColumns=igrep("^hit ", colnames(iDFgene)),
+         freezePaneColumn=max(igrep("gene|transcript", colnames(iDFgene))),
+         freezePaneRow=2
+      );
+   }
+}
+
+```
 
 ### Splicing, Sashimi plots
 

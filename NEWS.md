@@ -1,3 +1,11 @@
+# jampack version 0.0.14.9000
+
+* Export per-gene isoform summary statistics to Excel xlsx files,
+with each contrast in its own worksheet. Requires jamba (>= 0.0.29.900).
+* Fixed issue where numTx was not reported from runDiffSplice(), resolved
+in splicejam (>= 0.0.14.900). Updated DESCRIPTION to add this version
+requirement.
+
 # jampack version 0.0.13.9000
 
 * Differential isoform analysis, experiment design and contrast definitions
