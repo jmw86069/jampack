@@ -55,7 +55,7 @@ This document can be reproduced using the R code displayed in
 this document. The initial steps involve loading R packages
 into memory.
 
-```{r, r_initialization}
+```{r, r_initialization, cache=FALSE}
 suppressPackageStartupMessages(library(knitr));
 suppressPackageStartupMessages(library(kableExtra));
 suppressPackageStartupMessages(library(dplyr));
@@ -763,6 +763,20 @@ if (!file.exists(localDb)) {
    AnnotationDbi::saveDb(x=vM12txdb, file=localDb);
 } else {
    vM12txdb <- AnnotationDbi::loadDb(file=localDb);
+}
+```
+
+```{r, txdb_refresh, cache=FALSE}
+## This snippet simply confirms the vM12txdb object is valid
+## otherwise it loads from the source file. This step is
+## necessary to resume a previously cached knitr session.
+if (!DBI::dbIsValid(AnnotationDbi::dbconn(vM12txdb))) {
+   vM12txdb <- AnnotationDbi::loadDb(file=localDb);
+   printDebug("Refreshed vM12txdb.");
+   printDebug('print(find("vM12txdb"))');
+   print(find("vM12txdb"));
+} else {
+   printDebug("Did not refresh vM12txdb.");
 }
 ```
 
