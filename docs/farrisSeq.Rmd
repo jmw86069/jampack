@@ -464,7 +464,7 @@ corHM <- Heatmap(iMatrix7ctrCor[iSamplesCB,iSamplesCB],
       legend_height=unit(30, "mm")),
    row_dend_side="left",
    col=cBR);
-draw(corHM, merge_legend=TRUE);
+ComplexHeatmap::draw(corHM, merge_legend=TRUE);
 
 ```
 
@@ -527,7 +527,7 @@ corHM2 <- Heatmap(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
       legend_height=unit(30, "mm")),
    row_dend_side="left",
    col=cBR);
-draw(corHM2, merge_legend=TRUE);
+ComplexHeatmap::draw(corHM2, merge_legend=TRUE);
 ```
 
 #### Splom plot, refers to Figure 2, and Supplemental Figure 3
@@ -1147,7 +1147,7 @@ glHM <- Heatmap(iM4[,iSamplesGrpO],
    row_dend_side="left",
    raster_device="CairoPNG",
    col=cBRexpr);
-draw(glHM + rowHA3B, merge_legend=TRUE);
+ComplexHeatmap::draw(glHM + rowHA3B, merge_legend=TRUE);
 ## Print the number of rows and columns in the heatmap
 ## (broken in non-interactive sessions)
 if (1 == 2) {

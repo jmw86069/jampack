@@ -1,3 +1,15 @@
+# jampack version 0.0.15.9000
+
+## changes
+
+* Updated farrisSeq.Rmd to use prefixed `ComplexHeatmap::draw()`
+instead of `draw()` because of R method dispatch errors when
+another package is loaded that defines a generic `draw()` function.
+* Also confirmed that ComplexHeatmap requires the Github version,
+which provides `Heatmap()` arguments such as `left_annotation`. It
+should be available on Bioconductor after the next Bioconductor release
+(as of April 21, 2019.)
+
 # jampack version 0.0.14.9000
 
 * Export per-gene isoform summary statistics to Excel xlsx files,
