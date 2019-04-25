@@ -1,3 +1,16 @@
+# jampack version 0.0.16.9000
+
+## changes
+
+* `splicejam::defineDetectedTx()` was updated to allow conversion
+of zero expression values to `NA`, slightly improving the accuracy
+of transcript group mean expression values, which is the new default.
+For consistency, `zeroAsNA=FALSE` was added to farrisSeq.html to ensure
+consistency with previous calculations.
+* Updated the README.md page to include direct links to
+the online documentation for each Jam R package.
+* Reduced the number of files included in the R package build.
+
 # jampack version 0.0.15.9000
 
 ## changes

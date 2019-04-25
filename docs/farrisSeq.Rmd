@@ -679,6 +679,7 @@ detectedTxTPML <- defineDetectedTx(
    cutoffTxPctMax=10,
    cutoffTxExpr=32,
    cutoffTxTPMExpr=2,
+   zeroAsNA=FALSE,
    tx2geneDF=renameColumn(rowData(farrisTxSE),
      from=c("geneSymbol","probeID"),
      to=c("gene_name","transcript_id")),

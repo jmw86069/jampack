@@ -2,3 +2,10 @@
 ^\.Rproj\.user$
 ^NEWS\.md$
 ^README\.Rmd$
+^gencode.*
+^.*_cache$
+^.*_files$
+^docs/vM12.*
+^docs/gencode.*
+^docs/DiffIsoforms.*xlsx
+^docs/.*style.css

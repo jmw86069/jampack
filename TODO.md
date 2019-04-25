@@ -2,12 +2,7 @@
 
 ### Refactoring ideas
 
-* Consider pre-loading all calculated per-transcript values for
-speed. Meanwhile create corresponding vignettes to describe how
-to calculate each value from raw data. Examples: three prime UTR,
-CAI.
-* Implement ALEtoViolin() to encapsulate the logic used to create
-violin-friendly data format from the tx2ale() output data.
+* Consider moving packages from "Depends:" to "Imports:".
 
 ### Figures
 
