@@ -59,6 +59,7 @@ into memory.
 suppressPackageStartupMessages(library(knitr));
 suppressPackageStartupMessages(library(kableExtra));
 suppressPackageStartupMessages(library(dplyr));
+suppressPackageStartupMessages(library(tidyselect));
 suppressPackageStartupMessages(library(plotly));
 suppressPackageStartupMessages(library(made4));
 suppressPackageStartupMessages(library(matrixStats));
@@ -154,8 +155,9 @@ the Gencode GTF file.
 ```{r, gene_table, dependson="load_gene_data"}
 as.data.frame(head(rowData(farrisGeneSE), 10)) %>%
    dplyr::mutate() %>%
-   dplyr::select(probeID, geneSymbol, ends_with("_type"),
-      contains("has")) %>%
+   dplyr::select(probeID, geneSymbol,
+      tidyselect::ends_with("_type"),
+      tidyselect::contains("has")) %>%
    kable(escape=FALSE) %>%
    kable_styling()
 ```
@@ -211,9 +213,9 @@ tx_df <- subset(as.data.frame(rowData(farrisTxSE)),
    geneSymbol %in% c("Gria1","Shank2","Ntrk2")) %>%
    dplyr::select(geneSymbol,
       transcript_id,
-      ends_with("_type"),
-      contains("has"),
-      contains("tpm"));
+      tidyselect::ends_with("_type"),
+      tidyselect::contains("has"),
+      tidyselect::contains("tpm"));
 tx_df <- mixedSortDF(tx_df,
    byCols=match(c("geneSymbol","TxDetectedByTPM"),
      colnames(tx_df))*c(1,-1));
@@ -1761,10 +1763,11 @@ for (i in nameVectorN(contrastsL)) {
       ## Gene-centric stats table
       iDFgene <- diffSpliceL$statsDFs[[iCon]];
       ## Remove t-statistic column, reorder hit column
-      iDFgene <- dplyr::select(iDFgene, -matches("^t ")) %>%
-         dplyr::select(matches("gene|transcript"),
-            matches("^hit "),
-            everything());
+      iDFgene <- dplyr::select(iDFgene,
+            -tidyselect::matches("^t ")) %>%
+         dplyr::select(tidyselect::matches("gene|transcript"),
+            tidyselect::matches("^hit "),
+            tidyselect::everything());
       jamba::writeOpenxlsx(file=iXlsx,
          x=iDFgene,
          sheetName=iLab,

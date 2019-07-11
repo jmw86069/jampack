@@ -1,6 +1,6 @@
 Package: jampack
 Title: Jam Pack of Packages
-Version: 0.0.16.900
+Version: 0.0.17.900
 Authors@R: person(given="James M.", family="Ward",
     email="jmw86069@gmail.com", role=c("aut", "cre"))
 Description: This package is mainly a central package to install
@@ -23,7 +23,9 @@ Suggests: farrisdata (>= 0.0.6.900),
     made4,
     matrixStats,
     SummarizedExperiment,
-    ComplexHeatmap (>= 1.99.5)
+    ComplexHeatmap (>= 1.99.5),
+    dplyr,
+    tidyselect
 License: GPL-2
 Encoding: UTF-8
 LazyData: true

@@ -1,3 +1,16 @@
+# jampack version 0.0.17.9000
+
+## changes
+
+* `farrisSeq.Rmd` was updated to include prefixes for
+tidyselect functions, including `tidyselect::ends_with()`,
+`tidyselect::contains()`, and `tidyselect::matches()`.
+Also added tidyselect to packages loaded at the start of
+the Rmd.
+* Added `dplyr` and `tidyselect` to `"Suggests:" in the
+DESCRIPTION file, as they are required by `farrisSeq.Rmd`
+but not required otherwise.
+
 # jampack version 0.0.16.9000
 
 ## changes
