@@ -1756,7 +1756,9 @@ for (i in nameVectorN(contrastsL)) {
    iXlsx <- paste0("DiffIsoforms_by_", i, "_", jamba::getDate(), ".xlsx");
    #printDebug(i, "", ": ", iXlsx,
    #   ", ", length(contrastsL[[i]]), " worksheets");
-   for (iCon in contrastsL[[i]]) {
+   iConLabels <- con2label(contrastsL[[i]]);
+   iMatch <- match(unique(iConLabels), iConLabels);
+   for (iCon in contrastsL[[i]][iMatch]) {
       iLab <- con2label(iCon);
       #printDebug("   ", iLab);
       #iDFtx <- diffSpliceTxL$statsDFs[[iCon]];

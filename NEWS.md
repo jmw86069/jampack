@@ -1,3 +1,11 @@
+# jampack version 0.0.18.9000
+
+## changes
+
+* Updated DESCRIPTION with higher required package version
+numbers for jamba, splicejam, jamma, colorjam, to force
+updates for those packages as needed.
+
 # jampack version 0.0.17.9000
 
 ## changes
