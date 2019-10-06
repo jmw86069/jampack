@@ -1,6 +1,6 @@
 Package: jampack
 Title: Jam Pack of Packages
-Version: 0.0.18.900
+Version: 0.0.19.900
 Authors@R: person(given="James M.", family="Ward",
     email="jmw86069@gmail.com", role=c("aut", "cre"))
 Description: This package is mainly a central package to install

@@ -1059,8 +1059,8 @@ txListsAllDFuseScaled <- t(t(txListsAllDFuse) / colSums(txListsAllDFuse))*100;
 
 txListsAllDFuseScaled2 <- melt(txListsAllDFuseScaled);
 txListsAllDFuseScaled2$Var1 <- factor(txListsAllDFuseScaled2$Var1,
-   levels=provigrep(c("other","noncoding|non.coding","without","with","."),
-      as.character(txListsAllDFuseScaled2$Var1)));
+   levels=unique(provigrep(c("other","noncoding|non.coding","without","with","."),
+      as.character(txListsAllDFuseScaled2$Var1))));
 
 txListsAllDFuseScaled2$group <- pasteByRowOrdered(txListsAllDFuseScaled2[,c("Var2","Var1")]);
 ```
@@ -1365,7 +1365,7 @@ aleL <- tx2ale(
    detectedTx=detectedTx,
    iMatrix=assays(farrisTxSE)[["tpm"]],
    method="flank",
-   verbose=FALSE,
+   verbose=TRUE,
    tx2geneDF=tx2geneDF);
 ## use tx2ale to calculate ALE using count data
 iMatrixAleCt <- log2(1+
@@ -1791,35 +1791,206 @@ for (i in nameVectorN(contrastsL)) {
 
 ### Splicing, Sashimi plots
 
+Two genes with interesting alternative transcript isoforms are
+**Ntrk2** and **Gria1**. Sashimi plots are shown below, which
+represent the RNA-seq sequence read coverage across the exons,
+and the splice junction reads that span from exon to exon.
 
+The plots also include the transcript-exon model, and the flattened
+gene-exon model.
 
+First, some Sashimi plot data is prepared:
+
+* Exons per transcript, and CDS exons per transcript,
+which are derived from the Gencode GTF loaded previously.
+* `filesDF` which is a `data.frame` describing each RNA-seq file
+used to load sequence read coverage, and splice junction reads.
+* `sample_id` which is a subset of sample_id values described
+in `filesDF`.
+
+```{r, sashimi_prep}
+## Check for valid TxDb
+if (!DBI::dbIsValid(AnnotationDbi::dbconn(vM12txdb))) {
+   vM12txdb <- AnnotationDbi::loadDb(file=localDb);
+}
+
+## Obtain the exons per transcript
+exonsByTx <- exonsBy(vM12txdb, by="tx", use.names=TRUE);
+## Obtain CDS exons per transcript, used to show UTR as non-CDS
+cdsByTx <- cdsBy(vM12txdb, by="tx", use.names=TRUE);
+
+## flatten exons by gene for these two genes
+flatExonsByGene2 <- flattenExonsBy(exonsByTx=exonsByTx,
+   tx2geneDF=tx2geneDF,
+   detectedTx=detectedTx,
+   cdsByTx=cdsByTx,
+   by="gene",
+   genes=c("Ntrk2", "Gria1"));
+
+## flatten CDS exons by gene for these two genes
+flatExonsByTx2 <- flattenExonsBy(exonsByTx=exonsByTx,
+   tx2geneDF=tx2geneDF,
+   detectedTx=detectedTx,
+   cdsByTx=cdsByTx,
+   by="tx",
+   genes=c("Ntrk2", "Gria1"));
+
+## Define the files used for the sashimi plots
+filesDF <- farrisdata::farris_sashimi_files_df;
+## Define a subset of sample_id to display
+sample_id <- c("CA1_CB", "CA1_DE", "CA2_CB", "CA2_DE");
+```
+
+#### Sashimi plot for Ntrk2
+
+```{r, sashimi_ntrk2_prep, fig.height=14, fig.width=16}
+## prepare sashimi plot data for Ntrk2
+sashimi_ntrk2 <- prepareSashimi(gene="Ntrk2",
+   tx2geneDF=tx2geneDF,
+   flatExonsByTx=flatExonsByTx2,
+   flatExonsByGene=flatExonsByGene2,
+   colorSub=farrisdata::colorSub,
+   filesDF=filesDF,
+   sample_id=sample_id);
+```
+
+```{r, sashimi_ntrk2, fig.height=14, fig.width=16}
+## prepare gene-exon model for Ntrk2
+gg_ntrk2 <- gene2gg(gene="Ntrk2",
+   gene_order="last",
+   labelExons=FALSE,
+   exonLabelSize=6,
+   direction="y",
+   flatExonsByGene=flatExonsByGene2,
+   flatExonsByTx=flatExonsByTx2)
+
+## use cowplot to assemble sashimi plot and gene-exon model
+cp_ntrk2 <- cowplot::plot_grid(
+   gg_ntrk2 +
+      theme(axis.text.x=element_blank()) +
+      #ggtitle(NULL) +
+      xlab(NULL),
+   plotSashimi(sashimi_ntrk2,
+         color_sub=farrisdata::colorSub),
+   ncol=1,
+   align="v",
+   axis="lr",
+   rel_heights=c(1,2));
+cp_ntrk2;
+```
+
+#### Sashimi plot for Gria1
+
+```{r, sashimi_gria1_prep, fig.height=14, fig.width=16}
+## prepare sashimi plot data for Ntrk2
+sashimi_gria1 <- prepareSashimi(gene="Gria1",
+   tx2geneDF=tx2geneDF,
+   flatExonsByTx=flatExonsByTx2,
+   flatExonsByGene=flatExonsByGene2,
+   filesDF=filesDF,
+   minJunctionScore=200,
+   sample_id=sample_id);
+```
+
+```{r, sashimi_gria1, fig.height=14, fig.width=16}
+## prepare gene-exon model for Ntrk2
+gg_gria1 <- gene2gg(gene="Gria1",
+   gene_order="last",
+   labelExons=FALSE,
+   exonLabelSize=6,
+   direction="y",
+   flatExonsByGene=flatExonsByGene2,
+   flatExonsByTx=flatExonsByTx2)
+
+## use cowplot to assemble sashimi plot and gene-exon model
+cp_gria1 <- cowplot::plot_grid(
+   gg_gria1 +
+      theme(axis.text.x=element_blank()) +
+      #ggtitle(NULL) +
+      xlab(NULL),
+   plotSashimi(sashimi_gria1,
+         color_sub=farrisdata::colorSub),
+   ncol=1,
+   align="v",
+   axis="lr",
+   rel_heights=c(1,2));
+cp_gria1;
+```
+
+Zoom into the differential slice event, that switched from
+the "flop" to the "flip" form of Gria1:
+
+```{r, sashimi_gria1_zoom, fig.height=10, fig.width=10}
+## use cowplot to assemble sashimi plot and gene-exon model
+gria1_r <- ranges(range(subset(flatExonsByGene2[["Gria1"]],
+   gene_nameExon %in% c("Gria1_exon13", "Gria1_exon17a"))))
+gria1_zoom <- c(start(gria1_r), end(gria1_r));
+
+cp_gria1_zoom <- cowplot::plot_grid(
+   gg_gria1 +
+      theme(axis.text.x=element_blank()) +
+      coord_cartesian(xlim=gria1_zoom, expand=FALSE) +
+      xlab(NULL),
+   plotSashimi(sashimi_gria1,
+      label_coords=gria1_zoom,
+      color_sub=farrisdata::colorSub) +
+      coord_cartesian(xlim=gria1_zoom, expand=FALSE),
+   ncol=1,
+   align="v",
+   axis="lr",
+   rel_heights=c(1,3));
+cp_gria1_zoom;
+```
 
 ## Gene Set Enrichment
 
 ### Selection of gene hits
 
-Used DESeq-normalized expression values.
+Used DESeq-normalized expression values, tested versus MSigDB v6.0
+using hypergeometric enrichment via the R function
+`stats::phyper()`. A `data.frame` summary of statistical results
+was prepared, which included:
 
+* pathway name
+* pathway "Source" and "Category" as defined by MSigDB
+* number of genes per pathway
+* number of gene hits found per pathway
+* hypergeometric enrichment P-value
+* FDR-adjusted P-value
+* comma-delimited gene hits per pathway
 
-### Hypergeometric enrichment using MSigDB v6.0
-
-
-#### Preparing MSigDB v6.0 data
-
-Creating gmtT format, refreshing gene symbols in the gmtT data,
-and the RNAseq gene hit data to be fully in sync.
-
-Commentary on alt gene symbols, conversion to official mouse
+The gene symbols obtained from MSigDB were converted to most recent
+mouse Entrez gene symbols using the Bioconductor package `"org.Mm.eg.db"`.
+This same process was used with the gene symbols from the RNA-seq
+analysis steps above, in order to ensure the gene symbols in MSigDB
+and RNA-seq analysis were using the same comparable version of
 Entrez gene symbols.
 
-
-#### enrichSimple
-
-Wrapper around standard hypergeometric enrichment tests, with
-a custom background of detected genes.
+One `data.frame` result was prepared for each gene hit list,
+and was further analyzed using methods in the `"multienrichjam"`
+package.
 
 
 ### MultiEnrichMap
+
+MultiEnrichMap is an analysis workflow that extends previous
+innovative analysis workflows:
+
+* "[EnrichmentMap](https://www.baderlab.org/Software/EnrichmentMap)" by the
+Bader lab, ref: [Merico,et al, PLoS One, 2010](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0013984))
+* "[clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html)" and
+"[enrichplot](https://bioconductor.org/packages/release/bioc/html/enrichplot.html)" by
+Dr. Guangchuang Yu.
+
+The previous EnrichmentMap and EnrichMap workflows are intended to help
+understand and visualize gene set enrichment results in the context of
+one gene hit list.
+
+MultiEnrichMap is an extension of those workflow that compares multiple
+enrichment results. This workflow is implemented in an R package
+"multienrichjam", which can be installed with
+
+> `devtools::install_github("jmw86069/multienrichjam")`
 
 Subset pathways for top 15 per source-category
 

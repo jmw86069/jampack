@@ -1,3 +1,12 @@
+# jampack version 0.0.19.9000
+
+## changes
+
+* `farrisSeq.Rmd` was updated to include Sashimi plots via
+the `"splicejam"` package. Also, description of MultiEnrichMap
+methods were included, referencing the `"multienrichjam"` R
+package.
+
 # jampack version 0.0.18.9000
 
 ## changes
