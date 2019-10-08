@@ -1,3 +1,10 @@
+# jampack version 0.0.20.9000
+
+## changes
+
+* `farrisSeq.Rmd` was updated to include links to GEO, and to
+re-word several paragraphs to match updated figure numbering.
+
 # jampack version 0.0.19.9000
 
 ## changes

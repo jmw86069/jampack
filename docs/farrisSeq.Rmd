@@ -42,18 +42,68 @@ options("kable_styling_position"="left",
 
 This document describes and demonstrates analysis methods used to analyze
 mouse hippocampal subregion- and compartment-specific transcriptome
-RNA-seq data (Farris et al manuscript in preparation.)
+RNA-seq data [(Farris et al, 2019)](https://cellreports.com).
 
 Raw sequence read data is provided through GEO GSE116343, with RNA-seq
-data available at GEO GSE116342. Data used for analysis in R is provided
+data available at
+[GEO accession GSE116342](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE116342).
+Data used for analysis in R is provided
 through an R package `farrisdata`, installed in R with
 `devtools::install_github("jmw86069/farrisdata")`.
 
-## R environment setup
+## Reproducing this document
 
 This document can be reproduced using the R code displayed in
-this document. The initial steps involve loading R packages
-into memory.
+this document. There are three basic methods to reproduce these
+steps.
+
+#### Method One
+
+Copy and paste the commands into an active R session. Note that the
+workflow will create temporary files in the current directory.
+You can check the active directory with `getwd()` in R.
+
+
+#### Method Two
+
+Download the Rmarkdown file
+[farrisSeq.Rmd](https://github.com/jmw86069/jampack/blob/master/docs/farrisSeq.html)
+(linked) from the Github repository.
+
+* Move this file to a convenient folder.
+Cache files and images will be stored in that folder as a result
+of the analysis steps below.
+* Open R in the folder where the file was saved, 
+then run this command in R:
+
+> rmarkdown::render("farrisSeq.Rmd", "html_document", knit_root_dir=getwd(), output_dir=getwd())
+
+Once the process is complete, there will be a new file
+`farrisSeq.html` that contains the full summary including
+figures.
+
+This method has the benefit of loading all the R objects into
+the active R environment, so the data can be examined in more detail.
+
+#### Method Three
+
+Download the Rmarkdown file
+[farrisSeq.Rmd](https://github.com/jmw86069/jampack/blob/master/docs/farrisSeq.html)
+(linked) from the Github repository.
+
+* Move this file to a convenient folder.
+Cache files and images will be stored in that folder as a result
+* Open the `farrisSeq.Rmd` file in Rstudio, and click `"Knit"` to
+render the document into an HTML page.
+
+Once this process is complete, the output file `farrisSeq.html` will
+be opened automatically in the Rstudio viewer.
+This process has the slight disadvantage that the R objects are
+not loaded into the R environment.
+
+## R environment setup
+
+The initial steps involve loading required R packages into memory.
 
 ```{r, r_initialization, cache=FALSE}
 suppressPackageStartupMessages(library(knitr));
@@ -80,53 +130,34 @@ suppressPackageStartupMessages(library(Cairo));
 
 ```
 
-Alternatively, one can download the Rmarkdown file **"farrisSeq.Rmd"**
-from the Github repository. Open R in the folder where the file was saved,
-then run this command in R:
-
-> rmarkdown::render("farrisSeq.Rmd", "html_document", knit_root_dir=getwd(), output_dir=getwd())
-
 
 ## Description of Input Data
 
 The input data for this analysis workflow
-is derived from Salmon quantitation files, which were already imported and
-assembled into relevant data matrices.
+is gene and transcript level read count data 
+derived from Salmon quantitation files, which were already imported and
+assembled into relevant data matrices and saved as R objects
+`farrisGeneSE` and `farrisTXSE`, as described in more depth below.
 
-### Reference color substitutions
+### Description of sample groups
+
+The cell body (CB) and dendrite (DE) compartments from each
+hippocampal subregion cell type (CA1, CA2, CA3, DG) from three
+adult male mice (animal IDs 492, 496, 502) were laser capture
+microdissected and total RNA was extracted for RNAseq. Libraries
+were made using the Nugen Ovation Universal RNA-Seq system,
+which does not use isothermal amplification and produces
+strand-specific libraries depleted of rRNA.
 
 For consistency, a common set of colors are defined to represent
-the different sample groups.
-
-```{r, color_sub, fig.height=6, fig.width=8}
-colorSub <- c(
-   CA1="orange",
-   CA2="orangered3",
-   CA3="dodgerblue",
-   DG="purple",
-   CB="grey75",
-   DE="grey30",
-   CA1_CB="orange1",
-   CA1_DE="darkorange2",
-   CA2_CB="orangered1",
-   CA2_DE="orangered3",
-   CA3_CB="dodgerblue1",
-   CA3_DE="dodgerblue3",
-   DG_CB="darkorchid1",
-   DG_DE="darkorchid3",
-   `TRUE`="skyblue",
-   `FALSE`="indianred3");
-colorSub <- rgb2col(col2rgb(colorSub, alpha=TRUE));
-showColors(split(colorSub,
-   rep(c("Factors","Groups","Factors"), c(6,8,2))));
-```
+the different sample groups, obtained from `farrisdata::colorSub`.
 
 ### Gene expression data
 
 Salmon quantitation files were imported using the R Bioconductor
 package `tximport`, summarized to the gene level, and stored in an
 R object `farrisGeneSE`, which is available in the R data package
-`farrisdata`, installed using
+`"farrisdata"`, installed using
 `devtools::install_github("jmw86069/farrisdata")`.
 
 ```{r load_gene_data}
@@ -165,6 +196,7 @@ as.data.frame(head(rowData(farrisGeneSE), 10)) %>%
 * **colData** annotated data.frame with sample rows, describing the
 mouse hippocampal **Region**, **CellType**, **Sample**, and **groupName**.
 ```{r, sample_table, echo=FALSE, dependson=c("load_gene_data","color_sub")}
+colorSub <- farrisdata::colorSub;
 df2 <- kable_coloring(colData(farrisGeneSE),
       colorSub=colorSub,
       row_color_by="groupName",
@@ -185,6 +217,7 @@ for statistical comparisons.
     * **genes** vector of genes used.
 
 
+
 ### Transcript expression data
 
 Salmon  quantitation files were imported using `tximport` as above,
@@ -195,7 +228,7 @@ maintaining individual isoform abundances, then stored in an R object
 
 ```{r load_tx_data}
 ## Load the gene data
-data(farrisTxSE);
+farrisTxSE;
 ```
 
 #### farrisTxSE format
@@ -249,6 +282,12 @@ for statistical comparisons.
 
 ## Related analysis parameters
 
+The following steps and parameters were used to create
+the Salmon median normalized count data used in differential
+gene and isoform expression analyses and/or STAR junction
+count data used in sashimi plots. The STAR alignment was
+also used to create sequence read coverage files.
+
 ### Sickle read trimming
 
 We used sickle version 1.33 to trim paired-end reads, with parameters
@@ -259,6 +298,13 @@ reads at least 20 base length.
 
 We used cutadapt version 1.8.1 with parameter `-m 20` and with standard
 Illumina Truseq adapter sequence `AGATCGGAAGAGC`.
+
+### Salmon quantitation
+
+We used salmon version 0.9.1 for transcript quantitation, using
+Gencode vM12 comprehensive GTF file, using a index with kmer size 31,
+and the cutadapt adapter-trimmed reads, with seqBias, VBO, and gcBias
+options enabled.
 
 ### STAR sequence alignment
 
@@ -283,13 +329,6 @@ parameters:
 --outMultimapperOrder Random
 ```
 
-### Salmon quantitation
-
-We used salmon version 0.9.1 for transcript quantitation, using
-Gencode vM12 comprehensive GTF file, using a index with kmer size 31,
-and the cutadapt adapter-trimmed reads, with seqBias, VBO, and gcBias
-options enabled.
-
 
 ### featureCounts read counting
 
@@ -300,7 +339,10 @@ Gencode vM12 transcripts flattened per gene.
 ## Gene expression analysis summary
 
 
-### BGA plot
+### BGA plot, refers to Figure 2
+
+3D between group analysis (BGA) plot of the three
+biological replicates per cell type per compartment.
 
 ```{r bga_plot, dependson="load_gene_data"}
 bgaExprs <- assays(farrisGeneSE)$counts;
@@ -328,7 +370,7 @@ salmonBga1ly <- bgaPlotly3d(salmonBga1,
 salmonBga1ly;
 ```
 
-### Comparison with CA1 published data by Nakayama, Ainsley, Cajigas
+### Comparison with CA1 published data by Nakayama, Ainsley, Cajigas, refers to Figure S2
 
 First we calculate group medians using gene expression data, to determine
 the set of genes detected above an expression threshold of 128 pseudocounts
@@ -377,7 +419,7 @@ vps2vennL <- attr(vps2, "intersections");
 ## vps2vennL[["Farris:Cajigas:Ainsley:Nakayama"]]
 ```
 
-### Correlation Centered by Compartment, refers to Figure 2
+### Correlation Centered by Compartment, refers to Figure 3
 
 #### Cell Body
 
@@ -426,7 +468,7 @@ colDataColorsRepL <- as.data.frame(colData(farrisGeneSE)[,c("CellType","Compartm
 colDataColorsRep <- df2colorSub(colDataColorsRepL, colorSub=colorSub);
 ```
 
-Heatmap using ComplexHeatmap:
+Sample correlation heatmap
 
 ```{r sample_corr_cb_CH, fig.height=8, fig.width=10, dependson=c("sample_corr_cb_prep","color_sub")}
 pheat_colors <- list(Compartment=colorSub[c("CB","DE")],
@@ -496,7 +538,7 @@ colDataColorsGrp <- df2colorSub(colDataColorsGrpL,
   colorSub=colorSub);
 ```
 
-Heatmap using ComplexHeatmap:
+Sample correlation heatmap
 
 ```{r corr_by_compartment_CB, fig.height=8, fig.width=10, dependson="corr_by_compartment_prep"}
 colHA2 <- HeatmapAnnotation(df=colDataColorsGrpL[iSamplesGrp,2:1],
@@ -532,7 +574,7 @@ corHM2 <- Heatmap(iMatrix7grpCtrCor[iSamplesGrp,iSamplesGrp],
 ComplexHeatmap::draw(corHM2, merge_legend=TRUE);
 ```
 
-#### Splom plot, refers to Figure 2, and Supplemental Figure 3
+#### Splom plot, refers to Figures 3 and S4
 
 Scatterplot showing the +1,+1 selection of genes, which
 helps define the gene lists in the next section.
@@ -599,11 +641,8 @@ gg2 <- ggplot(splomDF2,
 gg2;
 ```
 
-Microarray correlation heatmap.
 
-### Neuronal Gene Lists
 
-(Description of the four gene/transcript lists)
 
 ```{r neuronal_gene_lists}
 ## anyGenes1 is the full set of all genes with abundance > 1
@@ -646,8 +685,6 @@ geneListsDF2;
 
 ```
 
-
-Heatmap per-gene.
 
 
 ### Differential gene expression using limma
@@ -1066,10 +1103,10 @@ txListsAllDFuseScaled2$group <- pasteByRowOrdered(txListsAllDFuseScaled2[,c("Var
 ```
 
 
-### Properties of hippocampus dendritic RNAs, supplemental figure 7
+### Properties of hippocampus dendritic RNAs, refers to S7
 
 
-#### supp7A Heatmap of high-confidence dendritic, cell body retained, and non-pyramidal RNA lists
+#### Heatmap of high-confidence dendritic, cell body retained, and non-pyramidal RNA lists, refers to S7A
 
 A heatmap is used to show the pattern of gene expression among the
 Neuronal Gene Lists defined above.
@@ -1168,7 +1205,7 @@ if (1 == 2) {
 ```
 
 
-#### supp7B Percent breakdown of transcript type by transcript list
+#### Percent breakdown of transcript type by transcript list, refers to S7B
 
 A stacked bar chart is used to show the relative abundances of
 transcript types, for each Neuronal Transcript List.
@@ -1211,11 +1248,14 @@ ggTxType <- ggplot(txListsAllDFuseScaled2, aes(x=Var2, fill=group, color=group))
 print(ggTxType);
 ```
 
-#### supp7C Violin plot of annotated 3'UTR lengths in each RNA list
+#### Heatmap of hypergeometric enrichment P-values of cell type by RNA list, refers to S7C
 
+In preparation.
+
+#### Violin plot of annotated 3'UTR lengths in each RNA list, refers to S7D
 
 We plotted 3'UTR lengths as violin plots using only detected transcripts
-based upon TPM criteria described elsewhere.
+based upon TPM criteria described previously.
 
 ```{r, utr_length, fig.width=12, fig.height=10, dependson=c("three_utr_length")}
 ## Subset the txListsAll by those with three prime utr data
@@ -1334,7 +1374,7 @@ TtestStatsUtrDF2;
 ```
 
 
-#### supp7D Proximal versus distal 3'UTR detected in each RNA list per compartment
+#### Proximal versus distal 3'UTR detected in each RNA list per compartment, refers to S7E
 
 ALE elements are defined by unique 5-prime ends of each 3-prime UTR,
 which allows for overlapping regions downstream, but protects against
@@ -1439,8 +1479,7 @@ print(aleViolinL$ggAle2);
 ```
 
 
-
-#### supp7E Violin plot of the average percentage of codons with CAI <= 0.5 per RNA list
+#### Violin plot of the average percentage of codons with CAI <= 0.5 per RNA list, refers to S7F
 
 Codon CAI values are loaded via the `farrisdata` R package, and can be
 calculated using methods described in the `jampack` R package suite.
@@ -1566,9 +1605,6 @@ TtestStatsCaiDF2;
 ```
 
 
-#### supp7F Heatmap of hypergeometric enrichment P-values of cell type by RNA list
-
-In preparation.
 
 
 ### Differential transcript isoform analysis limma
