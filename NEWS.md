@@ -1,3 +1,10 @@
+# jampack version 0.0.21.9000
+
+## changes
+
+* Edits to README.md and farrisSeq.Rmd to include link to the
+paper in Cell Reports.
+
 # jampack version 0.0.20.9000
 
 ## changes
