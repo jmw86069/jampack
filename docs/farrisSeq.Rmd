@@ -42,7 +42,7 @@ options("kable_styling_position"="left",
 
 This document describes and demonstrates analysis methods used to analyze
 mouse hippocampal subregion- and compartment-specific transcriptome
-RNA-seq data [(Farris et al, 2019)](https://cellreports.com).
+RNA-seq data [(Farris et al, 2019)](https://www.cell.com/cell-reports/fulltext/S2211-1247(19)31155-6).
 
 Raw sequence read data is provided through GEO GSE116343, with RNA-seq
 data available at
@@ -67,7 +67,7 @@ You can check the active directory with `getwd()` in R.
 #### Method Two
 
 Download the Rmarkdown file
-[farrisSeq.Rmd](https://github.com/jmw86069/jampack/blob/master/docs/farrisSeq.html)
+[farrisSeq.Rmd](https://raw.githubusercontent.com/jmw86069/jampack/master/docs/farrisSeq.Rmd)
 (linked) from the Github repository.
 
 * Move this file to a convenient folder.

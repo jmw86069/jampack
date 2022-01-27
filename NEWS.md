@@ -2,8 +2,10 @@
 
 ## updated dependencies on splicejam to 0.0.75.900
 
+## changes
 
-
+* Edits to README.md and farrisSeq.Rmd to include link to the
+paper in Cell Reports.
 
 # jampack version 0.0.20.9000
 
