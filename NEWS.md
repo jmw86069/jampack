@@ -1,3 +1,10 @@
+# jampack version 0.0.21.9000
+
+## updated dependencies on splicejam to 0.0.75.900
+
+
+
+
 # jampack version 0.0.20.9000
 
 ## changes

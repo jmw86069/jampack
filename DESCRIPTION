@@ -7,10 +7,10 @@ Description: This package is mainly a central package to install
     dependencies from other Jam packages, in support of RNA-seq and
     other genomics style analysis methods.
 Depends: R (>= 3.0.0),
-    jamba (>= 0.0.41.900),
+    jamba (>= 0.0.75.900),
     colorjam (>= 0.0.12.900),
     jamma (>= 0.0.13.900),
-    splicejam (>= 0.0.48.900)
+    splicejam (>= 0.0.75.900)
 Imports: ggrepel
 biocViews:
 Suggests: farrisdata (>= 0.0.9.900),
