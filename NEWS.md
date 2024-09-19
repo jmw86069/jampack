@@ -1,3 +1,20 @@
+# jampack version 0.0.22.9000
+
+* updated dependencies:
+
+   * splicejam to 0.0.80.900
+   * jamba to 0.0.102.900
+   * colorjam to 0.0.28.900
+   * jamma to 0.0.33.900
+   * farrisdata 0.0.10.900 (optional)
+   * ComplexHeatmap to 2.15.4 (optional)
+
+* Holding off for now about requiring R-4.0.0, although it might
+be necessary in future.
+* In future, all Depends may move to Imports, so that packages
+will need to be loaded properly rather than being loaded via
+jampack itself. Unclear.
+
 # jampack version 0.0.21.9000
 
 ## updated dependencies on splicejam to 0.0.75.900
