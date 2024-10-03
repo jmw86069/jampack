@@ -1,3 +1,14 @@
+# jampack version 0.0.23.9000
+
+* updated dependencies:
+
+   * splicejam to 0.0.81.900
+   
+      * fix error `"width() not found"`
+      * silence the warning that `shinyWidgets::setShadow()` is deprecated
+      * added **Troubleshooting** to `launchSashimiApp()` for web
+      connection errors.
+
 # jampack version 0.0.22.9000
 
 * updated dependencies:
