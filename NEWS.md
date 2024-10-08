@@ -1,3 +1,9 @@
+# jampack version 0.0.24.9000
+
+* updated dependencies:
+
+   * farrisdata to 0.0.11.900
+
 # jampack version 0.0.23.9000
 
 * updated dependencies:
